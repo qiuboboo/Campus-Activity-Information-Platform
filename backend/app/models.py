@@ -198,3 +198,66 @@ class PosterLink(TimestampMixin, db.Model):
             "updated_at": self.updated_at.isoformat(),
             "to_poster": self.to_poster.to_dict() if self.to_poster else None,
         }
+
+
+class DataSource(TimestampMixin, db.Model):
+    __tablename__ = "data_sources"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    base_url = db.Column(db.String(500), nullable=False)
+    list_selector = db.Column(db.String(500), nullable=True)
+    content_selector = db.Column(db.String(500), nullable=True)
+    enabled = db.Column(db.Boolean, default=True, nullable=False)
+    crawl_mode = db.Column(db.String(20), default="basic", nullable=False)
+
+    crawl_logs = db.relationship(
+        "CrawlLog",
+        back_populates="data_source",
+        cascade="all, delete-orphan",
+        lazy=True,
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "base_url": self.base_url,
+            "list_selector": self.list_selector,
+            "content_selector": self.content_selector,
+            "enabled": self.enabled,
+            "crawl_mode": self.crawl_mode,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+
+class CrawlLog(TimestampMixin, db.Model):
+    __tablename__ = "crawl_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    data_source_id = db.Column(db.Integer, db.ForeignKey("data_sources.id"), nullable=False)
+    status = db.Column(db.String(20), default="running", nullable=False)
+    message = db.Column(db.Text, nullable=True)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    pages_found = db.Column(db.Integer, default=0, nullable=False)
+    pages_succeeded = db.Column(db.Integer, default=0, nullable=False)
+    pages_failed = db.Column(db.Integer, default=0, nullable=False)
+
+    data_source = db.relationship("DataSource", back_populates="crawl_logs")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "data_source_id": self.data_source_id,
+            "status": self.status,
+            "message": self.message,
+            "started_at": self.started_at.isoformat(),
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+            "pages_found": self.pages_found,
+            "pages_succeeded": self.pages_succeeded,
+            "pages_failed": self.pages_failed,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }

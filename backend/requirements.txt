@@ -7,3 +7,5 @@ gunicorn
 psycopg[binary]
 python-dotenv
 redis
+requests
+beautifulsoup4

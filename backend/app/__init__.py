@@ -1,6 +1,7 @@
 from flask import Flask
 
 from .api.auth import auth_bp
+from .api.data_sources import data_sources_bp
 from .api.health import health_bp
 from .api.knowledge import knowledge_bp
 from .api.posters import posters_bp
@@ -32,6 +33,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     app.register_blueprint(posters_bp, url_prefix="/api/posters")
     app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
     app.register_blueprint(search_bp, url_prefix="/api/search")
+    app.register_blueprint(data_sources_bp, url_prefix="/api")
 
     register_commands(app)
 

@@ -168,3 +168,20 @@ Host github.com
 - Rotated `docs/TODOList.md` to the next executable task list.
 - Next target: implement data source configuration, basic `requests + BeautifulSoup` crawling, crawl logs, and draft poster generation.
 - Still deferred: HTTPS, domain binding, certificate setup, frontend pages, OpenClaw, vector search, and scheduled Celery tasks.
+
+### Server Implementation & Verification
+
+- Pulled `e4377e7` and implemented the data source crawler feature on the server:
+  - Added `requests` and `beautifulsoup4` to `requirements.txt`
+  - Added `DataSource` and `CrawlLog` models with `to_dict()` and relationships
+  - Created `data_source_service.py`: CRUD, validation, crawl log management
+  - Created `crawler_service.py`: HTTP fetch, HTML parsing via CSS selectors, content cleaning, draft poster creation with dedup
+  - Created `data_sources.py` API blueprint with endpoints: GET/POST `/data-sources`, GET/PUT `/data-sources/{id}`, POST `/{id}/crawl`, GET `/{id}/logs`
+  - Registered blueprint in `__init__.py`
+- Fixed Docker build: `python:3.12-slim` image now includes `requests` and `beautifulsoup4`
+- Verified all endpoints:
+  - Created test data source (`https://example.com`)
+  - Crawl succeeded: 1 page found, 1 succeeded, 1 draft poster created
+  - Crawl log written with `completed` status
+  - Health check and login continue to work
+  - Existing knowledge graph APIs unaffected
