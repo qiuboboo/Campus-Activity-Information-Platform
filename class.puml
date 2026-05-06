@@ -1,0 +1,75 @@
+@startuml 校园活动信息平台-类图
+class User {
+  +userId: int
+  +username: string
+  +password: string
+  +role: string
+}
+
+class Poster {
+  +posterId: int
+  +title: string
+  +summary: string
+  +eventTime: datetime
+  +location: string
+  +organizer: string
+  +status: string  // draft | pending_review | published | rejected
+  +reviewComment: string
+  +sourceType: string
+  +sourceUrl: string
+}
+
+class KnowledgeNode {
+  +nodeId: int
+  +name: string
+  +nodeType: string
+  +description: string
+  +sourceUrl: string
+}
+
+class PosterNode {
+  +posterNodeId: int
+  +relationType: string
+  +matchedBy: string
+}
+
+class PosterLink {
+  +posterLinkId: int
+  +linkType: string
+  +createdByRule: string
+}
+
+class DataSource {
+  +sourceId: int
+  +name: string
+  +baseUrl: string
+  +crawlMode: string
+  +isActive: boolean
+}
+
+class CrawlLog {
+  +logId: int
+  +status: string
+  +message: string
+  +startedAt: datetime
+  +finishedAt: datetime
+}
+
+class OpenClawTool {
+  +toolId: int
+  +toolName: string
+  +permissionLevel: string
+  +timeoutSeconds: int
+  +memoryLimitMb: int
+  +enabled: boolean
+}
+
+User "1" --> "0..*" Poster : publishes
+Poster "1" --> "0..*" PosterNode : has
+KnowledgeNode "1" --> "0..*" PosterNode : referenced by
+Poster "1" --> "0..*" PosterLink : source
+Poster "1" --> "0..*" PosterLink : target
+DataSource "1" --> "0..*" CrawlLog : generates
+DataSource --> "0..*" Poster : provides clues for
+OpenClawTool --> "0..*" DataSource : assists
+@enduml
