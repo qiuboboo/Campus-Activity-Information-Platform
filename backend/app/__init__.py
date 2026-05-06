@@ -2,7 +2,9 @@ from flask import Flask
 
 from .api.auth import auth_bp
 from .api.health import health_bp
+from .api.knowledge import knowledge_bp
 from .api.posters import posters_bp
+from .api.search import search_bp
 from .commands import register_commands
 from .config import Config
 from .extensions import cors, db, jwt
@@ -20,6 +22,8 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(posters_bp, url_prefix="/api/posters")
+    app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
+    app.register_blueprint(search_bp, url_prefix="/api/search")
 
     register_commands(app)
 

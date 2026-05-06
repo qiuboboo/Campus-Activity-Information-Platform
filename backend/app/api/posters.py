@@ -4,6 +4,7 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import Poster
+from ..services.knowledge_service import rebuild_poster_knowledge, related_payload
 from ..services.poster_service import build_poster_fields
 from ..utils.auth import roles_required
 
@@ -57,6 +58,9 @@ def create_poster():
     parsed = build_poster_fields(payload)
     poster = Poster(created_by=int(get_jwt_identity()), **parsed)
     db.session.add(poster)
+    db.session.flush()
+    if poster.status == "published":
+        rebuild_poster_knowledge(poster)
     db.session.commit()
     return jsonify({"item": poster.to_dict()}), 201
 
@@ -66,6 +70,13 @@ def create_poster():
 def get_poster(poster_id: int):
     poster = Poster.query.get_or_404(poster_id)
     return jsonify({"item": poster.to_dict()})
+
+
+@posters_bp.get("/<int:poster_id>/related")
+@jwt_required()
+def get_related(poster_id: int):
+    poster = Poster.query.get_or_404(poster_id)
+    return jsonify(related_payload(poster))
 
 
 @posters_bp.put("/<int:poster_id>")
@@ -81,6 +92,8 @@ def update_poster(poster_id: int):
     for key, value in parsed.items():
         setattr(poster, key, value)
 
+    if poster.status == "published":
+        rebuild_poster_knowledge(poster)
     db.session.commit()
     return jsonify({"item": poster.to_dict()})
 
@@ -98,6 +111,8 @@ def review_poster(poster_id: int):
 
     poster.status = "published" if action == "approve" else "rejected"
     poster.review_comment = comment or None
+    if poster.status == "published":
+        rebuild_poster_knowledge(poster)
     db.session.commit()
 
     return jsonify({"item": poster.to_dict()})

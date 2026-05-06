@@ -12,99 +12,99 @@
 
 ## 0. 拉取与检查
 
-- [ ] 执行 `git pull --ff-only`
-- [ ] 执行 `git status --short --branch`
-- [ ] 确认本地工作区干净
-- [ ] 执行 `python -m compileall backend` 或服务器等价命令
-- [ ] 记录当前起始 commit
+- [x] 执行 `git pull --ff-only`
+- [x] 执行 `git status --short --branch`
+- [x] 确认本地工作区干净
+- [x] 执行 `python -m compileall backend` 或服务器等价命令
+- [x] 记录当前起始 commit
 
 ## 1. 扩展数据库模型
 
-- [ ] 在 `backend/app/models.py` 中新增 `KnowledgeNode`
-- [ ] 在 `backend/app/models.py` 中新增 `PosterNode`
-- [ ] 在 `backend/app/models.py` 中新增 `PosterLink`
-- [ ] 为 `Poster` 增加到知识节点和海报关系的 relationship
-- [ ] 为新增模型实现 `to_dict()`
-- [ ] 保持字段命名与 `docs/后端技术文档.md` 中的设计一致
+- [x] 在 `backend/app/models.py` 中新增 `KnowledgeNode`
+- [x] 在 `backend/app/models.py` 中新增 `PosterNode`
+- [x] 在 `backend/app/models.py` 中新增 `PosterLink`
+- [x] 为 `Poster` 增加到知识节点和海报关系的 relationship
+- [x] 为新增模型实现 `to_dict()`
+- [x] 保持字段命名与 `docs/后端技术文档.md` 中的设计一致
 
 ## 2. 实现知识节点生成服务
 
-- [ ] 新增或扩展服务层模块，用于从海报字段生成节点
-- [ ] 支持时间节点
-- [ ] 支持地点节点
-- [ ] 支持组织节点
-- [ ] 支持主题节点
-- [ ] 支持来源节点
-- [ ] 节点按 `name + node_type` 去重
-- [ ] 生成 `PosterNode` 关联关系
+- [x] 新增或扩展服务层模块，用于从海报字段生成节点
+- [x] 支持时间节点
+- [x] 支持地点节点
+- [x] 支持组织节点
+- [x] 支持主题节点
+- [x] 支持来源节点
+- [x] 节点按 `name + node_type` 去重
+- [x] 生成 `PosterNode` 关联关系
 
 ## 3. 实现海报关系建链
 
-- [ ] 实现同日关系 `same_day`
-- [ ] 实现同地点关系 `same_place`
-- [ ] 实现同主办方关系 `same_org`
-- [ ] 实现同主题关系 `same_topic`
-- [ ] 避免重复创建相同方向关系
-- [ ] 确认审核通过时自动触发关联生成
-- [ ] 确认更新海报后可重新生成关联
+- [x] 实现同日关系 `same_day`
+- [x] 实现同地点关系 `same_place`
+- [x] 实现同主办方关系 `same_org`
+- [x] 实现同主题关系 `same_topic`
+- [x] 避免重复创建相同方向关系
+- [x] 确认审核通过时自动触发关联生成
+- [x] 确认更新海报后可重新生成关联
 
 ## 4. 实现关联信息接口
 
-- [ ] 新增 `GET /api/posters/{id}/related`
-- [ ] 返回当前海报基本信息
-- [ ] 返回直接关联知识节点
-- [ ] 返回共享节点的相关海报
-- [ ] 返回海报到海报的直接关系
-- [ ] 返回关联原因或关系类型
-- [ ] 保持返回结构便于前端展示
+- [x] 新增 `GET /api/posters/{id}/related`
+- [x] 返回当前海报基本信息
+- [x] 返回直接关联知识节点
+- [x] 返回共享节点的相关海报
+- [x] 返回海报到海报的直接关系
+- [x] 返回关联原因或关系类型
+- [x] 保持返回结构便于前端展示
 
 ## 5. 实现知识节点查询接口
 
-- [ ] 新增知识节点 API 蓝图
-- [ ] 实现 `GET /api/knowledge/nodes`
-- [ ] 支持按 `node_type` 过滤
-- [ ] 支持按关键词搜索
-- [ ] 实现 `GET /api/knowledge/nodes/{id}`
-- [ ] 节点详情返回关联海报列表
+- [x] 新增知识节点 API 蓝图
+- [x] 实现 `GET /api/knowledge/nodes`
+- [x] 支持按 `node_type` 过滤
+- [x] 支持按关键词搜索
+- [x] 实现 `GET /api/knowledge/nodes/{id}`
+- [x] 节点详情返回关联海报列表
 
 ## 6. 完善内部搜索
 
-- [ ] 新增搜索 API 蓝图
-- [ ] 实现 `GET /api/search/internal?q=...`
-- [ ] 搜索海报标题、摘要、原文
-- [ ] 搜索知识节点名称和描述
-- [ ] 返回命中类型 `poster` / `knowledge_node`
-- [ ] 暂不实现向量搜索，只实现关键词搜索
+- [x] 新增搜索 API 蓝图
+- [x] 实现 `GET /api/search/internal?q=...`
+- [x] 搜索海报标题、摘要、原文
+- [x] 搜索知识节点名称和描述
+- [x] 返回命中类型 `poster` / `knowledge_node`
+- [x] 暂不实现向量搜索，只实现关键词搜索
 
 ## 7. 准备演示数据
 
-- [ ] 更新 `seed-demo` 命令
-- [ ] 至少创建 3 条活动海报
-- [ ] 演示数据应包含共享地点
-- [ ] 演示数据应包含共享主办方
-- [ ] 演示数据应包含共享主题
-- [ ] 执行后可直接看到关联结果
+- [x] 更新 `seed-demo` 命令
+- [x] 至少创建 3 条活动海报
+- [x] 演示数据应包含共享地点
+- [x] 演示数据应包含共享主办方
+- [x] 演示数据应包含共享主题
+- [x] 执行后可直接看到关联结果
 
 ## 8. 文档与接口示例
 
-- [ ] 新增 `docs/APIExamples.md`
-- [ ] 写登录示例
-- [ ] 写创建海报示例
-- [ ] 写审核通过示例
-- [ ] 写查看关联信息示例
-- [ ] 写知识节点查询示例
-- [ ] 写内部搜索示例
+- [x] 新增 `docs/APIExamples.md`
+- [x] 写登录示例
+- [x] 写创建海报示例
+- [x] 写审核通过示例
+- [x] 写查看关联信息示例
+- [x] 写知识节点查询示例
+- [x] 写内部搜索示例
 
 ## 9. 本地验证
 
-- [ ] 执行 `python -m compileall backend`
-- [ ] 如本地依赖可用，执行 Flask 启动验证
-- [ ] 验证登录接口
-- [ ] 验证创建海报接口
-- [ ] 验证审核接口
-- [ ] 验证 `/api/posters/{id}/related`
-- [ ] 验证 `/api/knowledge/nodes`
-- [ ] 验证 `/api/search/internal`
+- [x] 执行 `python -m compileall backend`
+- [ ] 如本地依赖可用，执行 Flask 启动验证（本机缺少 Flask 依赖，交由服务器验证）
+- [ ] 验证登录接口（交由服务器 Docker 环境验证）
+- [ ] 验证创建海报接口（交由服务器 Docker 环境验证）
+- [ ] 验证审核接口（交由服务器 Docker 环境验证）
+- [ ] 验证 `/api/posters/{id}/related`（交由服务器 Docker 环境验证）
+- [ ] 验证 `/api/knowledge/nodes`（交由服务器 Docker 环境验证）
+- [ ] 验证 `/api/search/internal`（交由服务器 Docker 环境验证）
 
 ## 10. 服务器验证
 

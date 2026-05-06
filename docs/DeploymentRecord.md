@@ -116,3 +116,23 @@ Host github.com
 
 - Evaluate domain name and HTTPS setup
 - Begin frontend-backend integration
+
+## 2026-05-06 (Round 3 - Backend Knowledge Graph)
+
+### Scope
+
+- HTTPS, domain binding, OpenClaw, and vector search are intentionally deferred.
+- This round focuses on backend knowledge graph features from `docs/后端技术文档.md`.
+
+### Implemented Locally
+
+- Added knowledge node, poster-node, and poster-link models.
+- Added rule-based knowledge node generation from poster fields.
+- Added rule-based poster relation generation.
+- Added `GET /api/posters/{id}/related`.
+- Added knowledge node query endpoints under `/api/knowledge`.
+- Added keyword internal search under `/api/search/internal`.
+- Updated demo seed data for related poster scenarios.
+- Added `docs/APIExamples.md`.
+- Local verification: `python -m compileall backend` passed.
+- Runtime API verification is left for the server Docker environment because local Flask dependencies are not installed.
