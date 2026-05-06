@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
 from ..models import Poster, User
@@ -17,7 +18,10 @@ def ensure_default_admin() -> None:
     admin = User(username=username, role="admin")
     admin.set_password(password)
     db.session.add(admin)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
 
 
 def seed_demo_posters() -> None:
