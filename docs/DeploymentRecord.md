@@ -48,3 +48,43 @@ curl http://127.0.0.1:5000/api/health
 ```
 
 If external access is needed, route requests through Nginx on `80/443` instead of exposing database or cache ports.
+
+### Server GitHub SSH Key
+
+The server has generated an SSH key for the `workspace` user and the public key has been added to GitHub with the title `campus-platform-server`.
+
+Public key:
+
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKdyA2pgOY1gGo8SRVR19nhLVZ5yJI00b3iIwi9luw+l workspace@campus-platform
+```
+
+After confirming GitHub accepts the key, the server repository should use the SSH remote:
+
+```bash
+cd /home/workspace/Campus-Activity-Information-Platform
+git remote set-url origin git@github.com:qiuboboo/Campus-Activity-Information-Platform.git
+ssh -T git@github.com
+git pull --ff-only
+```
+
+Expected SSH test output:
+
+```text
+Hi qiuboboo! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+If `ssh -T git@github.com` waits forever, check outbound access from the server to GitHub port `22`. As a fallback, test GitHub's SSH-over-HTTPS endpoint:
+
+```bash
+ssh -T -p 443 git@ssh.github.com
+```
+
+If port `443` works but port `22` does not, add this to `/home/workspace/.ssh/config`:
+
+```sshconfig
+Host github.com
+    HostName ssh.github.com
+    User git
+    Port 443
+```
