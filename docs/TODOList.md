@@ -1,136 +1,166 @@
-# TODO List: Backend Knowledge Graph Feature Round
+# TODO List: Data Sources and Basic Crawler Feature Round
 
-本文是下一轮后端功能开发清单。目标是先按技术文档实现第一版“知识节点、海报关联、相关活动接口”，暂不处理 HTTPS、域名、前端页面和 OpenClaw。
+本文是下一轮后端功能开发清单。目标是按 `docs/后端技术文档.md` 先实现第一版“数据源配置 + 基础网页抓取 + 抓取日志 + 活动草稿生成”。本轮继续暂不处理 HTTPS、域名、证书、前端页面、OpenClaw、向量搜索和定时任务。
 
 默认约定：
 
-- 本轮只做后端功能
+- 项目操作使用 `workspace`
+- 项目目录为 `/home/workspace/Campus-Activity-Information-Platform`
+- 后端通过 Docker Compose 运行
 - 优先保持现有 Flask 项目结构
-- 优先兼容当前 PostgreSQL Docker 部署
-- 不引入复杂迁移工具，当前阶段继续使用 `AUTO_CREATE_TABLES`
+- 当前阶段继续使用 `AUTO_CREATE_TABLES`
+- 本轮只做基础爬虫，不调用 OpenClaw
+- 外部网页抓取必须设置超时、限制响应大小，并记录失败原因
 - 完成后更新 `docs/DeploymentRecord.md`
 
 ## 0. 拉取与检查
 
-- [x] 执行 `git pull --ff-only`
-- [x] 执行 `git status --short --branch`
-- [x] 确认本地工作区干净
-- [x] 执行 `python -m compileall backend` 或服务器等价命令
-- [x] 记录当前起始 commit
+- [ ] 以 `workspace` 用户进入项目目录
+- [ ] 执行 `cd /home/workspace/Campus-Activity-Information-Platform`
+- [ ] 执行 `git status --short --branch`
+- [ ] 确认没有未提交本地改动
+- [ ] 执行 `git pull --ff-only`
+- [ ] 记录起始 commit
+- [ ] 执行 `python -m compileall backend`
 
-## 1. 扩展数据库模型
+## 1. 扩展依赖
 
-- [x] 在 `backend/app/models.py` 中新增 `KnowledgeNode`
-- [x] 在 `backend/app/models.py` 中新增 `PosterNode`
-- [x] 在 `backend/app/models.py` 中新增 `PosterLink`
-- [x] 为 `Poster` 增加到知识节点和海报关系的 relationship
-- [x] 为新增模型实现 `to_dict()`
-- [x] 保持字段命名与 `docs/后端技术文档.md` 中的设计一致
+- [ ] 检查 `backend/requirements.txt`
+- [ ] 增加 `requests`
+- [ ] 增加 `beautifulsoup4`
+- [ ] 如需 URL 解析，优先使用 Python 标准库 `urllib.parse`
+- [ ] 不引入 Playwright、Selenium 或浏览器自动化
+- [ ] 不引入 OpenClaw 依赖
 
-## 2. 实现知识节点生成服务
+## 2. 扩展数据库模型
 
-- [x] 新增或扩展服务层模块，用于从海报字段生成节点
-- [x] 支持时间节点
-- [x] 支持地点节点
-- [x] 支持组织节点
-- [x] 支持主题节点
-- [x] 支持来源节点
-- [x] 节点按 `name + node_type` 去重
-- [x] 生成 `PosterNode` 关联关系
+- [ ] 在 `backend/app/models.py` 中新增 `DataSource`
+- [ ] 在 `backend/app/models.py` 中新增 `CrawlLog`
+- [ ] `DataSource` 至少包含 `name`
+- [ ] `DataSource` 至少包含 `base_url`
+- [ ] `DataSource` 至少包含 `list_selector`
+- [ ] `DataSource` 至少包含 `content_selector`
+- [ ] `DataSource` 至少包含 `enabled`
+- [ ] `DataSource` 至少包含 `crawl_mode`
+- [ ] `CrawlLog` 至少包含 `data_source_id`
+- [ ] `CrawlLog` 至少包含 `status`
+- [ ] `CrawlLog` 至少包含 `message`
+- [ ] `CrawlLog` 至少包含 `started_at`
+- [ ] `CrawlLog` 至少包含 `finished_at`
+- [ ] 为两个模型实现 `to_dict()`
+- [ ] 建立 `DataSource` 与 `CrawlLog` 的 relationship
 
-## 3. 实现海报关系建链
+## 3. 实现数据源服务层
 
-- [x] 实现同日关系 `same_day`
-- [x] 实现同地点关系 `same_place`
-- [x] 实现同主办方关系 `same_org`
-- [x] 实现同主题关系 `same_topic`
-- [x] 避免重复创建相同方向关系
-- [x] 确认审核通过时自动触发关联生成
-- [x] 确认更新海报后可重新生成关联
+- [ ] 新增 `backend/app/services/data_source_service.py`
+- [ ] 实现创建数据源
+- [ ] 实现查询数据源列表
+- [ ] 实现查询单个数据源
+- [ ] 实现更新数据源
+- [ ] 实现启用或禁用数据源
+- [ ] 实现基础字段校验
+- [ ] 校验 `base_url` 必须是 `http://` 或 `https://`
+- [ ] 默认 `crawl_mode` 为 `basic`
+- [ ] 当前只允许 `basic`，如果收到 `openclaw` 应返回清晰错误或暂不支持说明
 
-## 4. 实现关联信息接口
+## 4. 实现基础抓取服务
 
-- [x] 新增 `GET /api/posters/{id}/related`
-- [x] 返回当前海报基本信息
-- [x] 返回直接关联知识节点
-- [x] 返回共享节点的相关海报
-- [x] 返回海报到海报的直接关系
-- [x] 返回关联原因或关系类型
-- [x] 保持返回结构便于前端展示
+- [ ] 新增 `backend/app/services/crawler_service.py`
+- [ ] 使用 `requests` 发起 HTTP GET
+- [ ] 设置合理超时，例如 `timeout=10`
+- [ ] 设置基础 `User-Agent`
+- [ ] 限制响应正文最大处理长度，避免异常大页面拖垮服务
+- [ ] 使用 `BeautifulSoup` 解析 HTML
+- [ ] 使用 `list_selector` 提取列表页链接
+- [ ] 支持相对链接转绝对链接
+- [ ] 使用 `content_selector` 提取详情页正文
+- [ ] 如果 `content_selector` 为空，允许回退到 `body`
+- [ ] 对抓取文本做基础清洗，包括去空白、截断和去重
+- [ ] 抓取失败时不要让 API 崩溃，应写入失败日志并返回可读错误
 
-## 5. 实现知识节点查询接口
+## 5. 从抓取内容生成草稿海报
 
-- [x] 新增知识节点 API 蓝图
-- [x] 实现 `GET /api/knowledge/nodes`
-- [x] 支持按 `node_type` 过滤
-- [x] 支持按关键词搜索
-- [x] 实现 `GET /api/knowledge/nodes/{id}`
-- [x] 节点详情返回关联海报列表
+- [ ] 从详情页标题或链接文本生成 `Poster.title`
+- [ ] 从详情页正文生成 `Poster.raw_text`
+- [ ] 从正文前若干字符生成 `Poster.summary`
+- [ ] `Poster.source_type` 设置为 `crawl`
+- [ ] `Poster.source_url` 设置为详情页 URL
+- [ ] 默认状态为 `draft` 或现有草稿状态
+- [ ] 创建人为当前登录用户
+- [ ] 避免重复入库相同 `source_url`
+- [ ] 本轮不要求自动审核通过
+- [ ] 本轮不要求自动建知识图谱，待管理员审核通过后沿用现有审核逻辑
 
-## 6. 完善内部搜索
+## 6. 实现数据源 API
 
-- [x] 新增搜索 API 蓝图
-- [x] 实现 `GET /api/search/internal?q=...`
-- [x] 搜索海报标题、摘要、原文
-- [x] 搜索知识节点名称和描述
-- [x] 返回命中类型 `poster` / `knowledge_node`
-- [x] 暂不实现向量搜索，只实现关键词搜索
+- [ ] 新增 `backend/app/api/data_sources.py`
+- [ ] 在 `backend/app/__init__.py` 注册数据源蓝图
+- [ ] 实现 `GET /api/data-sources`
+- [ ] 实现 `POST /api/data-sources`
+- [ ] 实现 `GET /api/data-sources/{id}`
+- [ ] 实现 `PUT /api/data-sources/{id}`
+- [ ] 实现 `POST /api/data-sources/{id}/crawl`
+- [ ] 实现 `GET /api/data-sources/{id}/logs`
+- [ ] 数据源管理接口要求 JWT 登录
+- [ ] 创建、更新、抓取接口建议要求 `admin`
+- [ ] 返回结构保持 JSON，可直接用于前端管理页
 
-## 7. 准备演示数据
+## 7. 更新演示数据与接口示例
 
-- [x] 更新 `seed-demo` 命令
-- [x] 至少创建 3 条活动海报
-- [x] 演示数据应包含共享地点
-- [x] 演示数据应包含共享主办方
-- [x] 演示数据应包含共享主题
-- [x] 执行后可直接看到关联结果
+- [ ] 更新 `seed-demo`，可选创建 1 个示例数据源
+- [ ] 不在 `seed-demo` 中默认访问外网
+- [ ] 更新 `docs/APIExamples.md`
+- [ ] 添加创建数据源示例
+- [ ] 添加触发抓取示例
+- [ ] 添加查看抓取日志示例
+- [ ] 添加抓取生成草稿后的海报查询示例
 
-## 8. 文档与接口示例
+## 8. 本地或服务器语法验证
 
-- [x] 新增 `docs/APIExamples.md`
-- [x] 写登录示例
-- [x] 写创建海报示例
-- [x] 写审核通过示例
-- [x] 写查看关联信息示例
-- [x] 写知识节点查询示例
-- [x] 写内部搜索示例
+- [ ] 执行 `python -m compileall backend`
+- [ ] 如依赖已安装，执行 Flask 启动验证
+- [ ] 确认新增蓝图不会影响 `/api/health`
+- [ ] 确认登录接口仍可用
+- [ ] 确认已有知识图谱接口仍可用
 
-## 9. 本地验证
+## 9. 服务器 Docker 验证
 
-- [x] 执行 `python -m compileall backend`
-- [ ] 如本地依赖可用，执行 Flask 启动验证（本机缺少 Flask 依赖，交由服务器验证）
-- [ ] 验证登录接口（交由服务器 Docker 环境验证）
-- [ ] 验证创建海报接口（交由服务器 Docker 环境验证）
-- [ ] 验证审核接口（交由服务器 Docker 环境验证）
-- [ ] 验证 `/api/posters/{id}/related`（交由服务器 Docker 环境验证）
-- [ ] 验证 `/api/knowledge/nodes`（交由服务器 Docker 环境验证）
-- [ ] 验证 `/api/search/internal`（交由服务器 Docker 环境验证）
+- [ ] 进入 `backend` 目录
+- [ ] 执行 `docker compose down`
+- [ ] 执行 `docker compose up -d --build`
+- [ ] 执行 `docker compose ps`
+- [ ] 确认 `api`、`postgres`、`redis` 均为运行状态
+- [ ] 执行 `curl http://127.0.0.1/api/health`
+- [ ] 登录并记录 JWT token
+- [ ] 创建一个测试数据源
+- [ ] 使用一个稳定、可控、内容较小的测试页面验证抓取
+- [ ] 如果没有合适外网页面，可临时在服务器起一个本地静态 HTML 页面作为抓取目标
+- [ ] 验证抓取成功后生成海报草稿
+- [ ] 验证 `crawl_logs` 写入成功日志
+- [ ] 验证错误 URL 会写入失败日志
 
-## 10. 服务器验证
+## 10. 更新记录
 
-- [x] 服务器执行 `git pull --ff-only`
-- [x] 重启后端容器
-- [x] 执行健康检查 — **`{"status":"ok"}`**
-- [x] 执行登录接口 — **返回 JWT token**
-- [x] 执行演示数据生成 — **3 条海报 + 12 个知识节点**
-- [x] 验证关联信息接口 — **Poster 1 关联 Poster 2 (同日/同地)、Poster 3 (同主办方)**
-- [x] 验证知识节点接口 — **12 个节点，支持按 type 过滤**
-- [x] 验证内部搜索接口 — **搜索"校园"返回 2 条海报结果**
+- [ ] 更新 `docs/DeploymentRecord.md`
+- [ ] 写明拉取 commit
+- [ ] 写明新增模型与接口
+- [ ] 写明依赖变更
+- [ ] 写明 Docker 重建结果
+- [ ] 写明创建数据源验证结果
+- [ ] 写明抓取成功与失败日志验证结果
+- [ ] 明确记录 HTTPS、域名、OpenClaw、向量搜索、本轮未处理
 
-> 额外修复：`db.create_all()` 在 Gunicorn 多 Worker 下的并发冲突。通过将建表逻辑移到 `on_starting` hook + `preload_app=True` 解决。
+## 11. 提交与推送
 
-## 11. 记录与提交
-
-- [x] 更新 `docs/DeploymentRecord.md`
-- [x] 写明本轮实现范围
-- [x] 写明本轮未做 HTTPS、域名、OpenClaw、向量搜索
-- [x] 写明接口验证结果
-- [x] ~~执行 `git status --short`~~
-- [x] ~~提交代码与文档~~
-- [x] ~~推送到 GitHub~~
+- [ ] 执行 `git status --short`
+- [ ] 确认只包含本轮代码与文档变更
+- [ ] 执行 `git add backend docs`
+- [ ] 执行 `git commit -m "Implement basic data source crawler"`
+- [ ] 执行 `git push`
 
 ## 下一轮建议
 
-- [ ] 如果本轮成功，下一轮实现数据源与基础爬虫
-- [ ] 如果关联接口不稳定，下一轮聚焦关系生成规则和测试数据
+- [ ] 如果基础爬虫通过，下一轮实现 Celery 异步抓取任务
+- [ ] 如果草稿质量不足，下一轮优化规则抽取标题、时间、地点和主办方
+- [ ] 如果外网页面复杂，下一轮再评估 OpenClaw 或浏览器自动化
 - [ ] HTTPS、域名、证书继续延后

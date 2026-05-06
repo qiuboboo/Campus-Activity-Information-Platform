@@ -153,3 +153,18 @@ Host github.com
 - Gunicorn multi-worker `db.create_all()` race condition caused `UniqueViolation` on PostgreSQL internal `pg_type` catalog.
 - Moved database initialization from `create_app()` into gunicorn `on_starting` hook with `preload_app=True`.
 - `wsgi.py` still calls `init_database()` for single-process direct-run compatibility.
+
+## 2026-05-06 (Round 4 Planning - Data Sources and Basic Crawler)
+
+### Local Pull
+
+- Pulled remote server verification result into local workspace.
+- Current base commit: `81f754b Server verify knowledge graph APIs and fix gunicorn db race`.
+- Server-side knowledge graph verification is treated as complete.
+
+### Next Active TODO
+
+- Archived the completed knowledge graph TODO to `docs/todos/2026-05-06-backend-knowledge-graph.md`.
+- Rotated `docs/TODOList.md` to the next executable task list.
+- Next target: implement data source configuration, basic `requests + BeautifulSoup` crawling, crawl logs, and draft poster generation.
+- Still deferred: HTTPS, domain binding, certificate setup, frontend pages, OpenClaw, vector search, and scheduled Celery tasks.
