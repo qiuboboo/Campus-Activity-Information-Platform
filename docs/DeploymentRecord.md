@@ -88,3 +88,31 @@ Host github.com
     User git
     Port 443
 ```
+
+## 2026-05-06 (Round 2 — Server Hardening & Nginx)
+
+### Pulled Commit
+
+- From: `31b06e7` → To: `47fe627`
+- Pulled changes: Docker port lockdown, new TODO list, DeploymentRecord.md
+
+### Docker Port Convergence
+
+- Applied updated `docker-compose.yml`:
+  - `api` port mapping: `127.0.0.1:5000:5000` (localhost only)
+  - `postgres`: removed host port mapping (internal only)
+  - `redis`: removed host port mapping (internal only)
+- Restarted with `docker-compose down && docker-compose up -d --build`
+- All 3 containers running successfully
+- Port check: only `127.0.0.1:5000` listening on host
+
+### Nginx Reverse Proxy
+
+- Installed nginx 1.18.0 via apt
+- Deployed config from `deploy/nginx/campus-activity.conf`
+- Verified: `curl http://127.0.0.1/api/health` returns `{"status":"ok"}`
+
+### Next Steps
+
+- Evaluate domain name and HTTPS setup
+- Begin frontend-backend integration
