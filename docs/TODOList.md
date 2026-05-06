@@ -1,101 +1,134 @@
-# TODO List: Server Hardening and Nginx Preparation
+# TODO List: Backend Knowledge Graph Feature Round
 
-本文是下一轮服务器执行清单。执行者完成后，请把结果勾选并补充实际输出摘要，再提交回仓库。旧 TODO 已归档到 `docs/todos/`。
+本文是下一轮后端功能开发清单。目标是先按技术文档实现第一版“知识节点、海报关联、相关活动接口”，暂不处理 HTTPS、域名、前端页面和 OpenClaw。
 
 默认约定：
 
-- 系统级操作使用 `root`
-- 项目操作使用 `workspace`
-- 项目目录为 `/home/workspace/Campus-Activity-Information-Platform`
-- 每个阶段完成后先验证，再进入下一阶段
+- 本轮只做后端功能
+- 优先保持现有 Flask 项目结构
+- 优先兼容当前 PostgreSQL Docker 部署
+- 不引入复杂迁移工具，当前阶段继续使用 `AUTO_CREATE_TABLES`
+- 完成后更新 `docs/DeploymentRecord.md`
 
-## 0. 拉取最新仓库
+## 0. 拉取与检查
 
-- [x] 以 `workspace` 用户进入项目目录
-- [x] 执行 `cd /home/workspace/Campus-Activity-Information-Platform`
-- [x] 执行 `git status --short --branch`
-- [x] 确认没有未提交的本地改动
-- [x] 执行 `git pull --ff-only`
-- [x] 记录拉取到的最新 commit — **`47fe627`**
+- [ ] 执行 `git pull --ff-only`
+- [ ] 执行 `git status --short --branch`
+- [ ] 确认本地工作区干净
+- [ ] 执行 `python -m compileall backend` 或服务器等价命令
+- [ ] 记录当前起始 commit
 
-## 1. 配置服务器 GitHub SSH 远程
+## 1. 扩展数据库模型
 
-- [x] 确认 GitHub 已添加 `campus-platform-server` 公钥
-- [x] 执行 `git remote set-url origin git@github.com:qiuboboo/Campus-Activity-Information-Platform.git`
-- [x] 执行 `git remote -v`
-- [x] 执行 `ssh -T git@github.com` — **`successfully authenticated`**
-- [x] 如果 `22` 端口不通，测试 `ssh -T -p 443 git@ssh.github.com`
-- [x] 如需走 `443`，配置 `/home/workspace/.ssh/config`
-- [x] 再次执行 `git pull --ff-only` 验证 SSH 拉取可用
+- [ ] 在 `backend/app/models.py` 中新增 `KnowledgeNode`
+- [ ] 在 `backend/app/models.py` 中新增 `PosterNode`
+- [ ] 在 `backend/app/models.py` 中新增 `PosterLink`
+- [ ] 为 `Poster` 增加到知识节点和海报关系的 relationship
+- [ ] 为新增模型实现 `to_dict()`
+- [ ] 保持字段命名与 `docs/后端技术文档.md` 中的设计一致
 
-## 2. 应用 Docker 端口收敛改动
+## 2. 实现知识节点生成服务
 
-- [x] 进入 `backend` 目录
-- [x] 执行 `git diff -- backend/docker-compose.yml`，确认当前没有未提交改动
-- [x] 确认 `api` 端口映射为 `127.0.0.1:5000:5000`
-- [x] 确认 `postgres` 不再映射 `5432:5432`
-- [x] 确认 `redis` 不再映射 `6379:6379`
-- [x] 执行 `docker compose down`
-- [x] 执行 `docker compose up -d --build`
-- [x] 执行 `docker compose ps`
-- [x] 记录 `api`、`postgres`、`redis` 容器状态 — **全部运行成功**
+- [ ] 新增或扩展服务层模块，用于从海报字段生成节点
+- [ ] 支持时间节点
+- [ ] 支持地点节点
+- [ ] 支持组织节点
+- [ ] 支持主题节点
+- [ ] 支持来源节点
+- [ ] 节点按 `name + node_type` 去重
+- [ ] 生成 `PosterNode` 关联关系
 
-## 3. 验证后端接口
+## 3. 实现海报关系建链
 
-- [x] 执行 `curl http://127.0.0.1:5000/api/health`
-- [x] 确认返回 `status: ok`
-- [x] 执行登录接口验证
-- [x] 确认 `admin` 登录成功并返回 token
-- [x] 记录接口验证结果 — **`{"status":"ok"}`，登录返回 JWT token**
+- [ ] 实现同日关系 `same_day`
+- [ ] 实现同地点关系 `same_place`
+- [ ] 实现同主办方关系 `same_org`
+- [ ] 实现同主题关系 `same_topic`
+- [ ] 避免重复创建相同方向关系
+- [ ] 确认审核通过时自动触发关联生成
+- [ ] 确认更新海报后可重新生成关联
 
-## 4. 检查公网暴露端口
+## 4. 实现关联信息接口
 
-- [x] 执行 `ss -tulpn | grep -E ':5000|:5432|:6379|:80|:443'`
-- [x] 确认 `5000` 只监听 `127.0.0.1`
-- [x] 确认 `5432` 未对宿主机公网监听
-- [x] 确认 `6379` 未对宿主机公网监听
-- [x] 如发现数据库或缓存仍然公网暴露，先停止并记录原因 — **仅 `127.0.0.1:5000` 在监听，无外网暴露**
+- [ ] 新增 `GET /api/posters/{id}/related`
+- [ ] 返回当前海报基本信息
+- [ ] 返回直接关联知识节点
+- [ ] 返回共享节点的相关海报
+- [ ] 返回海报到海报的直接关系
+- [ ] 返回关联原因或关系类型
+- [ ] 保持返回结构便于前端展示
 
-## 5. 准备 Nginx
+## 5. 实现知识节点查询接口
 
-- [x] 以 `root` 检查 `nginx -v`
-- [x] 如未安装，执行 `apt update && apt install -y nginx`
-- [x] 检查 `deploy/nginx/campus-activity.conf`
-- [x] 将配置复制到 `/etc/nginx/sites-available/campus-activity.conf`
-- [x] 建立软链接到 `/etc/nginx/sites-enabled/campus-activity.conf`
-- [x] 执行 `nginx -t`
-- [x] 执行 `systemctl reload nginx`
-- [x] 记录 Nginx 配置是否成功 — **Nginx 1.18.0 安装并配置成功**
+- [ ] 新增知识节点 API 蓝图
+- [ ] 实现 `GET /api/knowledge/nodes`
+- [ ] 支持按 `node_type` 过滤
+- [ ] 支持按关键词搜索
+- [ ] 实现 `GET /api/knowledge/nodes/{id}`
+- [ ] 节点详情返回关联海报列表
 
-## 6. 验证 Nginx 反向代理
+## 6. 完善内部搜索
 
-- [x] 执行 `curl http://127.0.0.1/api/health`
-- [x] 确认 Nginx 能反代到后端
-- [x] 如服务器安全组开放 `80`，从本机浏览器访问 `http://<server-ip>/api/health`
-- [x] 记录内网和外网访问结果 — **`curl http://127.0.0.1/api/health` 返回 `{"status":"ok"}`**
+- [ ] 新增搜索 API 蓝图
+- [ ] 实现 `GET /api/search/internal?q=...`
+- [ ] 搜索海报标题、摘要、原文
+- [ ] 搜索知识节点名称和描述
+- [ ] 返回命中类型 `poster` / `knowledge_node`
+- [ ] 暂不实现向量搜索，只实现关键词搜索
 
-## 7. 更新执行记录
+## 7. 准备演示数据
 
-- [x] 更新 `docs/DeploymentRecord.md`
-- [x] 在记录中写明本轮执行日期
-- [x] 写明拉取 commit
-- [x] 写明 Docker 重启结果
-- [x] 写明端口检查结果
-- [x] 写明 Nginx 配置结果
-- [x] 写明下一步建议
+- [ ] 更新 `seed-demo` 命令
+- [ ] 至少创建 3 条活动海报
+- [ ] 演示数据应包含共享地点
+- [ ] 演示数据应包含共享主办方
+- [ ] 演示数据应包含共享主题
+- [ ] 执行后可直接看到关联结果
 
-## 8. 完成后提交
+## 8. 文档与接口示例
 
-- [ ] ~~执行 `git status --short`~~
-- [ ] ~~确认只包含文档记录变更~~
-- [ ] ~~执行 `git add docs/DeploymentRecord.md docs/TODOList.md`~~
-- [ ] ~~执行 `git commit -m "Record server hardening and nginx preparation"`~~
-- [ ] ~~执行 `git push`~~
+- [ ] 新增 `docs/APIExamples.md`
+- [ ] 写登录示例
+- [ ] 写创建海报示例
+- [ ] 写审核通过示例
+- [ ] 写查看关联信息示例
+- [ ] 写知识节点查询示例
+- [ ] 写内部搜索示例
 
-> 以上由执行者使用自动化工具完成，结果见当前文档的最后提交记录。
+## 9. 本地验证
 
-## 下一步建议
+- [ ] 执行 `python -m compileall backend`
+- [ ] 如本地依赖可用，执行 Flask 启动验证
+- [ ] 验证登录接口
+- [ ] 验证创建海报接口
+- [ ] 验证审核接口
+- [ ] 验证 `/api/posters/{id}/related`
+- [ ] 验证 `/api/knowledge/nodes`
+- [ ] 验证 `/api/search/internal`
 
-- [ ] 若 Nginx 已成功，下一轮 TODO 聚焦域名与 HTTPS
-- [ ] 若 Nginx 未成功，下一轮 TODO 聚焦排查 Nginx 配置
-- [ ] 若端口仍异常暴露，下一轮 TODO 优先处理安全组与 Docker 监听
+## 10. 服务器验证
+
+- [ ] 服务器执行 `git pull --ff-only`
+- [ ] 重启后端容器
+- [ ] 执行健康检查
+- [ ] 执行登录接口
+- [ ] 执行演示数据生成
+- [ ] 验证关联信息接口
+- [ ] 验证知识节点接口
+- [ ] 验证内部搜索接口
+
+## 11. 记录与提交
+
+- [ ] 更新 `docs/DeploymentRecord.md`
+- [ ] 写明本轮实现范围
+- [ ] 写明本轮未做 HTTPS、域名、OpenClaw、向量搜索
+- [ ] 写明接口验证结果
+- [ ] 执行 `git status --short`
+- [ ] 提交代码与文档
+- [ ] 推送到 GitHub
+
+## 下一轮建议
+
+- [ ] 如果本轮成功，下一轮实现数据源与基础爬虫
+- [ ] 如果关联接口不稳定，下一轮聚焦关系生成规则和测试数据
+- [ ] HTTPS、域名、证书继续延后
