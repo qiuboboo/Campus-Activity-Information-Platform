@@ -136,3 +136,20 @@ Host github.com
 - Added `docs/APIExamples.md`.
 - Local verification: `python -m compileall backend` passed.
 - Runtime API verification is left for the server Docker environment because local Flask dependencies are not installed.
+
+### Server Verification
+
+- Pulled `289aebb` and restarted Docker (`docker-compose down && up -d --build`)
+- Health check: `{"status":"ok"}`
+- Login: JWT token returned
+- Demo data seeded: 3 posters + 12 knowledge nodes generated
+- `GET /api/posters/1/related`: Poster 1 linked to Poster 2 (same_day, same_place, same_topic), Poster 3 (same_org)
+- `GET /api/knowledge/nodes`: 12 nodes returned (time, place, organization, topic, source)
+- `GET /api/knowledge/nodes/1`: Node detail with 2 linked posters
+- `GET /api/search/internal?q=校园`: 2 poster hits returned
+
+### Fix Applied During Deployment
+
+- Gunicorn multi-worker `db.create_all()` race condition caused `UniqueViolation` on PostgreSQL internal `pg_type` catalog.
+- Moved database initialization from `create_app()` into gunicorn `on_starting` hook with `preload_app=True`.
+- `wsgi.py` still calls `init_database()` for single-process direct-run compatibility.

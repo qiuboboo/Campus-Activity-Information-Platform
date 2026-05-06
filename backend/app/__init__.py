@@ -11,6 +11,14 @@ from .extensions import cors, db, jwt
 from .services.bootstrap import ensure_default_admin
 
 
+def init_database(app: Flask) -> None:
+    """Create tables and seed default admin. Safe for single-process call."""
+    with app.app_context():
+        if app.config["AUTO_CREATE_TABLES"]:
+            db.create_all()
+            ensure_default_admin()
+
+
 def create_app(config_object: type[Config] = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_object)
@@ -26,10 +34,5 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     app.register_blueprint(search_bp, url_prefix="/api/search")
 
     register_commands(app)
-
-    with app.app_context():
-        if app.config["AUTO_CREATE_TABLES"]:
-            db.create_all()
-            ensure_default_admin()
 
     return app

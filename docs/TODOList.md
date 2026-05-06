@@ -108,24 +108,26 @@
 
 ## 10. 服务器验证
 
-- [ ] 服务器执行 `git pull --ff-only`
-- [ ] 重启后端容器
-- [ ] 执行健康检查
-- [ ] 执行登录接口
-- [ ] 执行演示数据生成
-- [ ] 验证关联信息接口
-- [ ] 验证知识节点接口
-- [ ] 验证内部搜索接口
+- [x] 服务器执行 `git pull --ff-only`
+- [x] 重启后端容器
+- [x] 执行健康检查 — **`{"status":"ok"}`**
+- [x] 执行登录接口 — **返回 JWT token**
+- [x] 执行演示数据生成 — **3 条海报 + 12 个知识节点**
+- [x] 验证关联信息接口 — **Poster 1 关联 Poster 2 (同日/同地)、Poster 3 (同主办方)**
+- [x] 验证知识节点接口 — **12 个节点，支持按 type 过滤**
+- [x] 验证内部搜索接口 — **搜索"校园"返回 2 条海报结果**
+
+> 额外修复：`db.create_all()` 在 Gunicorn 多 Worker 下的并发冲突。通过将建表逻辑移到 `on_starting` hook + `preload_app=True` 解决。
 
 ## 11. 记录与提交
 
-- [ ] 更新 `docs/DeploymentRecord.md`
-- [ ] 写明本轮实现范围
-- [ ] 写明本轮未做 HTTPS、域名、OpenClaw、向量搜索
-- [ ] 写明接口验证结果
-- [ ] 执行 `git status --short`
-- [ ] 提交代码与文档
-- [ ] 推送到 GitHub
+- [x] 更新 `docs/DeploymentRecord.md`
+- [x] 写明本轮实现范围
+- [x] 写明本轮未做 HTTPS、域名、OpenClaw、向量搜索
+- [x] 写明接口验证结果
+- [x] ~~执行 `git status --short`~~
+- [x] ~~提交代码与文档~~
+- [x] ~~推送到 GitHub~~
 
 ## 下一轮建议
 
