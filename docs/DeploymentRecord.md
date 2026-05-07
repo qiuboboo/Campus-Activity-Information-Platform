@@ -185,3 +185,37 @@ Host github.com
   - Crawl log written with `completed` status
   - Health check and login continue to work
   - Existing knowledge graph APIs unaffected
+
+## 2026-05-07 (Round 5 — Real CSE Crawler & Structured Field Extraction)
+
+### Scope
+
+- Extended `crawler_service.py` to extract structured fields from detail pages:
+  - Title from `<h1>` (fallback to `<title>`)
+  - Event time from `time[datetime]` inside `.field-date-period`
+  - Location from `.field-event-location .field-item`
+  - Speaker/organizer from `.field-speaker .field-item`
+- Added `_parse_datetime()` to handle ISO 8601 formats (`2025-10-09T14:30:00Z`, etc.)
+- Updated `_create_draft_poster()` to accept and persist `event_time`, `location`, `organizer` on the `Poster` model
+- No model changes required (Poster already had these fields from a prior round)
+
+### Real Site Experiment — `https://cse.sysu.edu.cn/`
+
+- Created data source:
+  - name: `中山大学计算机学院学术活动`
+  - base_url: `https://cse.sysu.edu.cn/research/activity`
+  - list_selector: `.eventitems a[href^="/event/"]`
+  - content_selector: `.article-header, .field-subtitle, .field-date-period, .field-event-location, .field-speaker, .field-body`
+- Crawl result: 12 events found, 12 succeeded, 0 failed
+- Verified sample poster (`https://cse.sysu.edu.cn/event/3345`):
+  - title: `Efficient parallel acceleration technology for distributed large models`
+  - event_time: `2025-10-09T14:30:00`
+  - location: `Room A327, School of Computer Science, East Campus, Sun Yat-sen University`
+  - organizer/speaker: `Huang Jiayi`
+- All 12 posters had correctly extracted event_time, location, and organizer
+- Approved poster 17 → knowledge graph generated: 4 nodes (time, place, organization, source)
+- Internal search verified:
+  - `分布式大模型` → 2 poster hits
+  - `分布式大模型高效并行加速技术` → 1 poster hit
+  - `Huang Jiayi` → 1 poster hit + 1 knowledge node hit
+  - `并行加速` → 1 poster hit

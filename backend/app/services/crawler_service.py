@@ -1,3 +1,4 @@
+from datetime import datetime
 from urllib.parse import urljoin
 
 import requests
@@ -81,11 +82,67 @@ def _extract_title_from_html(html: str, url: str) -> str:
     return unquote(filename).replace("_", " ").replace("-", " ")[:_MAX_TITLE_LENGTH]
 
 
+def _parse_datetime(value: str) -> datetime | None:
+    # Handle ISO 8601: strip trailing Z, strip fractional seconds
+    val = value.strip()
+    if val.endswith("Z"):
+        val = val[:-1]
+    # Remove trailing +00:00 timezone offset for simplicity
+    if "+" in val:
+        val = val.split("+")[0]
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(val, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _extract_structured_fields(html: str) -> dict:
+    """Extract structured fields (title, event_time, location, organizer) from a detail page."""
+    soup = BeautifulSoup(html, "html.parser")
+    fields: dict = {}
+
+    # Title from <h1> (preferred over <title> for article pages)
+    h1 = soup.select_one("h1")
+    if h1:
+        title_text = h1.get_text(strip=True)
+        if title_text:
+            fields["title"] = title_text[:_MAX_TITLE_LENGTH]
+
+    # Event time from <time datetime="..."> inside .field-date-period
+    time_tag = soup.select_one(".field-date-period time[datetime]") or soup.select_one("time[datetime]")
+    if time_tag:
+        dt_str = time_tag["datetime"]
+        parsed = _parse_datetime(dt_str)
+        if parsed:
+            fields["event_time"] = parsed
+
+    # Location from .field-event-location .field-item
+    loc_tag = soup.select_one(".field-event-location .field-item")
+    if loc_tag:
+        loc_text = loc_tag.get_text(strip=True)
+        if loc_text:
+            fields["location"] = loc_text
+
+    # Speaker / organizer from .field-speaker .field-item
+    speaker_tag = soup.select_one(".field-speaker .field-item")
+    if speaker_tag:
+        speaker_text = speaker_tag.get_text(strip=True)
+        if speaker_text:
+            fields["organizer"] = speaker_text
+
+    return fields
+
+
 def _create_draft_poster(
     title: str,
     raw_text: str,
     source_url: str,
     created_by: int,
+    event_time: datetime | None = None,
+    location: str | None = None,
+    organizer: str | None = None,
 ) -> Poster | None:
     existing = Poster.query.filter_by(source_url=source_url).first()
     if existing:
@@ -97,6 +154,9 @@ def _create_draft_poster(
         title=title,
         raw_text=raw_text,
         summary=summary,
+        event_time=event_time,
+        location=location,
+        organizer=organizer,
         status="draft",
         source_type="crawl",
         source_url=source_url,
@@ -145,8 +205,18 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
                 pages_failed += 1
                 continue
 
-            title = _extract_title_from_html(detail_html, url)
-            poster = _create_draft_poster(title, raw_text, url, user_id)
+            # Try structured extraction first for a better title
+            structured = _extract_structured_fields(detail_html)
+            title = structured.get("title") or _extract_title_from_html(detail_html, url)
+            poster = _create_draft_poster(
+                title,
+                raw_text,
+                url,
+                user_id,
+                event_time=structured.get("event_time"),
+                location=structured.get("location"),
+                organizer=structured.get("organizer"),
+            )
             if poster:
                 posters_created += 1
             pages_succeeded += 1

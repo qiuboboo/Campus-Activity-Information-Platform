@@ -161,24 +161,24 @@
 
 ## 9.1 中山大学计算机学院真实抓取实验
 
-- [ ] 创建数据源 `中山大学计算机学院学术活动`
-- [ ] `base_url` 设置为 `https://cse.sysu.edu.cn/research/activity`
-- [ ] `list_selector` 优先尝试 `.eventitems a[href^="/event/"]`
-- [ ] `content_selector` 优先尝试 `.article-header, .field-subtitle, .field-date-period, .field-event-location, .field-speaker, .field-body`
-- [ ] 触发 `POST /api/data-sources/{id}/crawl`
-- [ ] 确认抓取到详情页 `https://cse.sysu.edu.cn/event/3345` 或列表中任意一个 `/event/<id>` 活动
-- [ ] 确认生成的海报草稿 `source_type` 为 `crawl`
-- [ ] 确认生成的海报草稿 `source_url` 为实际详情页 URL
-- [ ] 确认标题包含 `Efficient parallel acceleration technology for distributed large models` 或实际抓取活动标题
-- [ ] 确认原始文本或摘要包含活动时间、活动地点、主讲人等至少两类结构化信息
-- [ ] 如抓取到样例 `3345`，确认草稿中包含 `分布式大模型高效并行加速技术`
-- [ ] 调用海报列表接口确认该草稿可查询
-- [ ] 将该草稿通过审核接口审核为 `published`
-- [ ] 审核后调用 `/api/posters/{id}/related`
-- [ ] 确认审核发布后生成知识节点，至少包含时间、地点、来源中的一类
-- [ ] 调用 `/api/search/internal?q=分布式大模型`
-- [ ] 确认内部搜索能命中该抓取生成的海报或相关知识节点
-- [ ] 在 `docs/DeploymentRecord.md` 记录本次真实站点实验结果，包括实际抓取 URL、生成海报 ID、审核结果、关联接口结果、搜索结果
+- [x] 创建数据源 `中山大学计算机学院学术活动`
+- [x] `base_url` 设置为 `https://cse.sysu.edu.cn/research/activity`
+- [x] `list_selector` 优先尝试 `.eventitems a[href^="/event/"]`
+- [x] `content_selector` 优先尝试 `.article-header, .field-subtitle, .field-date-period, .field-event-location, .field-speaker, .field-body`
+- [x] 触发 `POST /api/data-sources/{id}/crawl`
+- [x] 确认抓取到详情页 `https://cse.sysu.edu.cn/event/3345` 或列表中任意一个 `/event/<id>` 活动
+- [x] 确认生成的海报草稿 `source_type` 为 `crawl`
+- [x] 确认生成的海报草稿 `source_url` 为实际详情页 URL
+- [x] 确认标题包含 `Efficient parallel acceleration technology for distributed large models` 或实际抓取活动标题
+- [x] 确认原始文本或摘要包含活动时间、活动地点、主讲人等至少两类结构化信息
+- [x] 如抓取到样例 `3345`，确认草稿中包含 `分布式大模型高效并行加速技术`
+- [x] 调用海报列表接口确认该草稿可查询
+- [x] 将该草稿通过审核接口审核为 `published`
+- [x] 审核后调用 `/api/posters/{id}/related`
+- [x] 确认审核发布后生成知识节点，至少包含时间、地点、来源中的一类
+- [x] 调用 `/api/search/internal?q=分布式大模型`
+- [x] 确认内部搜索能命中该抓取生成的海报或相关知识节点
+- [x] 在 `docs/DeploymentRecord.md` 记录本次真实站点实验结果，包括实际抓取 URL、生成海报 ID、审核结果、关联接口结果、搜索结果
 
 ## 10. 更新记录
 
@@ -189,10 +189,10 @@
 - [x] 写明 Docker 重建结果
 - [x] 写明创建数据源验证结果
 - [x] 写明抓取成功与失败日志验证结果
-- [ ] 写明中山大学计算机学院真实站点实验结果
-- [ ] 写明实际使用的列表选择器和详情选择器
-- [ ] 写明实际抓取到的活动 URL 与生成海报 ID
-- [ ] 写明海报审核、关联分析、内部搜索验证结果
+- [x] 写明中山大学计算机学院真实站点实验结果
+- [x] 写明实际使用的列表选择器和详情选择器
+- [x] 写明实际抓取到的活动 URL 与生成海报 ID
+- [x] 写明海报审核、关联分析、内部搜索验证结果
 - [x] 明确记录 HTTPS、域名、OpenClaw、向量搜索、本轮未处理
 
 ## 11. 提交与推送
