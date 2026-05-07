@@ -290,3 +290,17 @@ Host github.com
 - Candidate target: convert manual data source crawling from synchronous API execution to a Celery + Redis async task queue.
 - Memory guardrail: initial worker concurrency should stay at `1`.
 - Deferred from the candidate plan: Celery Beat, OpenClaw, high-concurrency crawling, and scheduled crawler automation.
+
+## 2026-05-07 (Round 7 Planning - Celery Async Crawl Queue)
+
+### Rotation
+
+- Archived the completed swap and memory stabilization TODO to `docs/todos/2026-05-07-server-swap-memory.md`.
+- Promoted the Celery async crawl queue plan into the active `docs/TODOList.md`.
+- Removed `docs/NextTaskPlan.md` because the candidate plan is now the official active TODO.
+
+### Next Active TODO
+
+- Target: convert manual data source crawling from synchronous API execution to a Celery + Redis async task queue.
+- Guardrail: worker concurrency starts at `1`.
+- Still deferred: HTTPS, domain binding, certificates, OpenClaw, frontend pages, Celery Beat, and scheduled crawler automation.

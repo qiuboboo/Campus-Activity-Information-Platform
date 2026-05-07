@@ -9,7 +9,6 @@
 - [Server Permissions Guide](服务器权限与开发账户说明.md)
 - [Initial Server Backend Deployment Plan](服务器后端初步部署执行计划.md)
 - [Deployment TODO List](TODOList.md)
-- [Next Task Plan](NextTaskPlan.md)
 - [Deployment Record](DeploymentRecord.md)
 - [Archived TODO Lists](todos/)
 - [API Examples](APIExamples.md)
