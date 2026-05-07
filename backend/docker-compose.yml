@@ -33,6 +33,17 @@ services:
       - redis
     command: celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1
 
+  beat:
+    build: .
+    container_name: campus-activity-beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.celery_app.celery beat --loglevel=INFO
+
   redis:
     image: redis:7
     container_name: campus-activity-redis

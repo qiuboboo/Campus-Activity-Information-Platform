@@ -21,6 +21,8 @@ class Config:
     DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
     DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123456")
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    ENABLE_SCHEDULED_CRAWL = _as_bool(os.getenv("ENABLE_SCHEDULED_CRAWL"), False)
+    CRAWL_SCHEDULE_HOURS = int(os.getenv("CRAWL_SCHEDULE_HOURS", "12"))
     OPENCLAW_BASE_URL = os.getenv("OPENCLAW_BASE_URL", "")
     EMBEDDING_ENABLED = _as_bool(os.getenv("EMBEDDING_ENABLED"), False)
     JSON_AS_ASCII = False

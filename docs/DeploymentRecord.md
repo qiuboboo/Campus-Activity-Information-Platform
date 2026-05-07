@@ -446,27 +446,33 @@ Extended backend with governance capabilities: review queue, bulk review, duplic
   - Knowledge rebuild, export APIs, and demo summary third.
 - Still deferred: HTTPS, domain binding, certificates, OpenClaw, and frontend pages.
 
-## 2026-05-07 (Round 10 Planning - Backend Basic Version Finalization)
+## 2026-05-07 (Round 10 — Backend Basic Version Finalization)
 
-### Planning Goal
+### Scope
 
-- Replaced the active `docs/TODOList.md` with a full backend basic-version finalization plan.
-- The new plan is intended for server-side execution and checkbox tracking by the next executor.
-- Scope is limited to backend stabilization and delivery readiness.
+Finalized the backend for stable deployment, recovery, verification, and delivery readiness. No new business features — focused on infrastructure hardening, documentation, and testing.
 
-### Planned Scope
+### Changes
 
-- Pull latest code and record the baseline commit.
-- Verify Docker Compose, running containers, health check, login, demo summary, export APIs, and memory baseline.
-- Add low-frequency Celery Beat scheduled crawl support with an environment switch.
-- Add database backup and restore scripts or documented commands.
-- Finish production security checks for secrets, default admin password, `.env`, database exposure, Redis exposure, and cloud firewall ports.
-- Freeze backend API documentation with curl examples for core flows.
-- Add a backend smoke-test script for health, login, crawl task, review queue, search, export, and demo summary.
-- Verify service restart and optional server reboot recovery.
-- Record final deployment results and archive the completed TODO.
+- **Celery Beat scheduled crawl**: Added `beat` service to docker-compose.yml; `crawl_all_enabled_sources` task runs every 12 hours; gated by `ENABLE_SCHEDULED_CRAWL` (default `false`) and `CRAWL_SCHEDULE_HOURS` env vars
+- **Backup & restore scripts**: `scripts/backup_db.sh` (`pg_dump` via Docker, auto-prunes to last 14); `scripts/restore_db.sh` (with "type yes" confirmation guard); verified with 48K backup file
+- **Security hardening**: Confirmed JWT secret is non-default, `.env` not in Git, PostgreSQL/Redis ports unexposed, API on 127.0.0.1:5000 only, nginx on port 80, no hardcoded credentials
+- **API documentation**: `docs/APIOverview.md` with all 11 endpoint categories, auth markers, Quick Start curl examples, design decisions, and out-of-scope note
+- **Smoke test**: `scripts/smoke_backend.sh` — 12 tests covering health, login, demo summary, data sources, review queue, search, 3 export endpoints, audit logs, knowledge nodes, and auth rejection; all passing
 
-### Explicitly Deferred
+### Verification Results
+
+```
+Smoke Test: 12 passed, 0 failed
+Containers: api, worker, beat, postgres, redis — all Up
+Data persistence after restart: 15 posters, 12 nodes, 6 links, 1 data source
+Memory: API 139M / Worker 80M / Beat ~20M / Postgres 47M / Redis 10M
+Backup: 48K, pg_dump from Docker container
+```
+
+### Still Deferred
+
+- HTTPS, domain binding, certificates, OpenClaw, frontend pages remain deferred.
 
 - HTTPS, domain binding, SSL certificates.
 - Formal frontend pages and frontend-backend integration.
