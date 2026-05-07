@@ -2,6 +2,7 @@ services:
   api:
     build: .
     container_name: campus-activity-api
+    restart: unless-stopped
     env_file:
       - .env
     ports:
@@ -13,6 +14,7 @@ services:
   postgres:
     image: postgres:16
     container_name: campus-activity-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: campus_activity
       POSTGRES_USER: campus
@@ -23,6 +25,7 @@ services:
   redis:
     image: redis:7
     container_name: campus-activity-redis
+    restart: unless-stopped
     volumes:
       - redis-data:/data
 

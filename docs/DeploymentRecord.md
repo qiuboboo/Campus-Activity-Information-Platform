@@ -233,3 +233,50 @@ Host github.com
 - Rotated `docs/TODOList.md` to a server memory stabilization task list.
 - Next target: diagnose memory usage, create a persistent `2G` swap file, tune `vm.swappiness`, observe Docker memory usage, and optionally reduce Gunicorn memory pressure.
 - Still deferred: HTTPS, domain binding, certificate setup, OpenClaw, frontend pages, and Celery feature work.
+
+## 2026-05-07 (Round 6 — Server Swap and Memory Stabilization)
+
+### Scope
+
+- This round made no business feature changes. It focused on server stability: creating persistent swap, tuning memory pressure, adding Docker auto-restart, and observing post-reboot behavior.
+
+### Swap Setup
+
+- Created 2GiB swap file at `/swapfile`:
+  - `sudo fallocate -l 2G /swapfile`
+  - `sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
+- Persisted in `/etc/fstab`: `/swapfile none swap sw 0 0`
+- Verified fstab mount: `swapon --show` reports `/swapfile 2G`
+- Set `vm.swappiness = 10` (runtime + persisted to `/etc/sysctl.d/99-campus-platform.conf`)
+- Backup of original fstab saved as `/etc/fstab.bak.<timestamp>`
+
+### Docker Compose Auto-Restart
+
+- Added `restart: unless-stopped` to all three services (api, postgres, redis) in `backend/docker-compose.yml`
+- This ensures containers restart automatically after a server reboot.
+
+### Reboot Verification
+
+- Server rebooted successfully.
+- After reboot:
+  - Swap auto-mounted: 2GiB available, 0 used ✓
+  - Docker containers were recreated with `docker-compose up -d --build` (docker-compose v1.29 compatibility issue required `down -v` then `up -d`)
+  - Demo data re-seeded (`flask seed-demo`)
+  - All 3 containers running: api, postgres, redis
+
+### Post-Crawl Observation
+
+- Triggered a real crawl on `https://cse.sysu.edu.cn/research/activity` (12 events)
+- Memory observed across 3 checks at 30s intervals after crawl:
+  - API container: stable at ~127MiB (3.64%)
+  - PostgreSQL: stable at ~51MiB (1.48%)
+  - Redis: stable at ~9MiB (0.26%)
+  - System available: ~1.4Gi
+  - Swap usage: 0B (not needed under normal load)
+- Gunicorn workers kept at 2 (not reduced — memory well within limits)
+- Docker Compose memory limits not added (v1.29, current usage low)
+- Health check: `{"status":"ok"}`
+
+### Still Deferred
+
+- HTTPS, domain, certificates, OpenClaw, frontend pages, and Celery feature work remain deferred.
