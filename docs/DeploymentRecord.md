@@ -352,3 +352,20 @@ Host github.com
 ### Still Deferred
 
 - HTTPS, domain binding, certificates, OpenClaw, frontend pages, Celery Beat, and scheduled crawler automation remain deferred.
+
+## 2026-05-07 (Round 9 Planning - Activity Governance and Admin Workflow)
+
+### Rotation
+
+- Archived the completed Celery async crawl TODO to `docs/todos/2026-05-07-celery-async-crawl.md`.
+- Rotated `docs/TODOList.md` to a longer backend governance task list.
+
+### Next Active TODO
+
+- Target: activity governance and admin workflow.
+- Scope includes review queue, batch review, duplicate detection, source merging, audit logs, quality scoring, knowledge graph rebuild, and demo/export APIs.
+- Recommended split if the round is too large:
+  - Review queue, batch review, and audit logs first.
+  - Duplicate detection, source merging, and quality scoring second.
+  - Knowledge rebuild, export APIs, and demo summary third.
+- Still deferred: HTTPS, domain binding, certificates, OpenClaw, and frontend pages.

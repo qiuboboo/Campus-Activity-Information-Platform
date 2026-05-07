@@ -1,174 +1,248 @@
-# TODO List: Celery Async Crawl Queue
+# TODO List: Activity Governance and Admin Workflow
 
-本文是下一轮后端功能开发清单。目标是把当前同步执行的 `POST /api/data-sources/{id}/crawl` 改造成 `Celery + Redis` 异步任务队列。服务器已完成 swap 与内存稳定化，但本轮仍要保持保守并发，避免再次造成内存压力。
+本文是下一轮较长后端任务清单。目标是把当前“能抓取、能生成草稿、能审核发布、能建知识图谱”的后端，推进为更完整的活动治理后台：抓取草稿进入审核队列、支持重复识别、支持批量审核、记录审计日志、评估草稿质量、支持知识图谱重建，并提供课程演示导出接口。
 
 默认约定：
 
 - 项目操作使用 `workspace`
 - 项目目录为 `/home/workspace/Campus-Activity-Information-Platform`
 - 后端通过 Docker Compose 运行
+- Celery worker 已可用，但本轮不新增 Celery Beat
 - 本轮不处理 HTTPS、域名、证书、OpenClaw、前端页面
-- 本轮不实现 Celery Beat 和定时任务
-- Worker 初始并发固定为 `1`
-- 继续使用现有 Redis 容器作为 broker
-- 继续复用现有同步抓取函数，避免大改业务逻辑
+- 本轮优先实现非 AI、规则化、可解释的治理能力
+- 本轮接口应优先服务后续管理后台前端
 - 完成后更新 `docs/DeploymentRecord.md`
 
 ## 0. 拉取与检查
 
-- [x] 以 `workspace` 用户进入项目目录
-- [x] 执行 `cd /home/workspace/Campus-Activity-Information-Platform`
-- [x] 执行 `git status --short --branch`
-- [x] 确认没有未提交本地改动
-- [x] 执行 `git pull --ff-only`
-- [x] 记录起始 commit
-- [x] 执行 `python -m compileall backend`
+- [ ] 以 `workspace` 用户进入项目目录
+- [ ] 执行 `cd /home/workspace/Campus-Activity-Information-Platform`
+- [ ] 执行 `git status --short --branch`
+- [ ] 确认没有未提交本地改动
+- [ ] 执行 `git pull --ff-only`
+- [ ] 记录起始 commit
+- [ ] 执行 `python -m compileall backend`
 
-## 1. 确认内存与 Redis 基线
+## 1. 扩展活动治理字段
 
-- [x] 执行 `free -h`
-- [x] 执行 `swapon --show`
-- [x] 执行 `docker stats --no-stream`
-- [x] 执行 `docker compose -f backend/docker-compose.yml ps`
-- [x] 确认 swap 已启用
-- [x] 确认 Redis 容器运行正常
-- [x] 记录 Celery 改造前容器内存占用
+- [ ] 在 `Poster` 中增加 `duplicate_group_key`
+- [ ] 在 `Poster` 中增加 `source_fingerprint`
+- [ ] 在 `Poster` 中增加 `quality_score`
+- [ ] 在 `Poster` 中增加 `quality_notes`
+- [ ] 在 `Poster` 中增加 `last_crawled_at`
+- [ ] 保持旧数据兼容
+- [ ] 更新 `Poster.to_dict()`
 
-## 2. 新增 Celery 应用初始化
+## 2. 扩展数据源治理字段
 
-- [x] 新增 `backend/app/celery_app.py`
-- [x] 从 Flask `Config.REDIS_URL` 读取 broker
-- [x] 从 Flask `Config.REDIS_URL` 读取 result backend
-- [x] 确保 Celery task 内可以访问 Flask app context
-- [x] 避免 worker import 时重复触发数据库建表竞态
-- [x] 确保 Celery app 能加载后续 `app.tasks` 模块
+- [ ] 在 `DataSource` 中增加 `source_level`
+- [ ] 在 `DataSource` 中增加 `owner`
+- [ ] 在 `DataSource` 中增加 `notes`
+- [ ] 在 `DataSource` 中增加 `last_success_at`
+- [ ] 在 `DataSource` 中增加 `last_failure_at`
+- [ ] 在 `DataSource` 中增加 `last_error_message`
+- [ ] 更新 `DataSource.to_dict()`
+- [ ] 更新创建和更新数据源接口，允许写入这些字段
 
-## 3. 新增抓取任务模块
+## 3. 新增审计日志模型
 
-- [x] 新增 `backend/app/tasks/__init__.py`
-- [x] 新增 `backend/app/tasks/crawl_tasks.py`
-- [x] 实现 `crawl_data_source_task(data_source_id, user_id)`
-- [x] task 内调用现有 `crawl_data_source(data_source_id, user_id)`
-- [x] 捕获异常并返回结构化错误
-- [x] 返回结果至少包含 `success`
-- [x] 返回结果至少包含 `posters_created`
-- [x] 返回结果至少包含 `pages_found`
-- [x] 返回结果至少包含 `pages_succeeded`
-- [x] 返回结果至少包含 `pages_failed`
+- [ ] 新增 `AuditLog`
+- [ ] 字段包含 `actor_id`
+- [ ] 字段包含 `action`
+- [ ] 字段包含 `target_type`
+- [ ] 字段包含 `target_id`
+- [ ] 字段包含 `summary`
+- [ ] 字段包含 `metadata_json`
+- [ ] 字段包含 `created_at`
+- [ ] 实现 `AuditLog.to_dict()`
+- [ ] 新增 `backend/app/services/audit_service.py`
+- [ ] 实现 `create_audit_log()`
 
-## 4. 改造抓取 API
+## 4. 实现重复识别服务
 
-- [x] 修改 `backend/app/api/data_sources.py`
-- [x] `POST /api/data-sources/{id}/crawl` 默认提交 Celery 任务
-- [x] 默认返回 `202 Accepted`
-- [x] 返回 `task_id`
-- [x] 返回 `status_url`，例如 `/api/tasks/{task_id}`
-- [x] 保留同步调试模式
-- [x] 请求体传 `{"sync": true}` 时仍同步执行现有抓取逻辑
-- [x] 数据源不存在时仍返回 `404`
-- [x] 非 admin 仍不能触发抓取
+- [ ] 新增 `backend/app/services/dedup_service.py`
+- [ ] 根据标题标准化生成 title key
+- [ ] 根据日期生成 date key
+- [ ] 根据地点标准化生成 location key
+- [ ] 根据来源链接生成 source key
+- [ ] 生成 `source_fingerprint`
+- [ ] 生成 `duplicate_group_key`
+- [ ] 抓取创建草稿前先检测相同 `source_url`
+- [ ] 再检测相同 `source_fingerprint`
+- [ ] 对完全重复内容跳过创建
+- [ ] 对疑似重复内容创建草稿但标记 `duplicate_group_key`
+- [ ] 抓取结果返回重复数量
 
-## 5. 新增任务状态 API
+## 5. 实现草稿质量评分
 
-- [x] 新增 `backend/app/api/tasks.py`
-- [x] 在 `backend/app/__init__.py` 注册 tasks 蓝图
-- [x] 实现 `GET /api/tasks/{task_id}`
-- [x] 返回 `task_id`
-- [x] 返回 `state`
-- [x] 返回 `result`
-- [x] 返回 `error`
-- [x] 接口需要 JWT 登录
-- [x] 对未知或过期 task 返回清晰状态
+- [ ] 新增 `backend/app/services/quality_service.py`
+- [ ] 标题为空或过短扣分
+- [ ] 摘要为空扣分
+- [ ] 无活动时间扣分
+- [ ] 无地点扣分
+- [ ] 无来源链接扣分
+- [ ] 正文过短扣分
+- [ ] 疑似重复扣分
+- [ ] 官方来源加分
+- [ ] 生成 `quality_score`
+- [ ] 生成 `quality_notes`
+- [ ] 抓取生成草稿时自动评分
+- [ ] 抓取日志记录本次新增草稿平均质量
 
-## 6. Docker Compose 增加 worker
+## 6. 增强抓取日志
 
-- [x] 修改 `backend/docker-compose.yml`
-- [x] 新增 `worker` 服务
-- [x] worker 使用与 `api` 相同 build
-- [x] worker 使用同一个 `.env`
-- [x] worker 依赖 `postgres` 和 `redis`
-- [x] worker 不暴露端口
-- [x] worker 设置 `restart: unless-stopped`
-- [x] worker command 使用 `celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1`
-- [x] 保持 API、PostgreSQL、Redis 现有启动方式
+- [ ] 为 `CrawlLog` 增加 `duplicates_skipped`
+- [ ] 为 `CrawlLog` 增加 `drafts_created`
+- [ ] 为 `CrawlLog` 增加 `average_quality_score`
+- [ ] 更新 `CrawlLog.to_dict()`
+- [ ] 更新 `finish_crawl_log()`
+- [ ] 更新同步抓取结果结构
+- [ ] 更新 Celery 抓取任务返回结构
+- [ ] 确保旧日志可正常序列化
 
-## 7. 文档与接口示例
+## 7. 实现审核队列 API
 
-- [x] 更新 `docs/APIExamples.md`
-- [x] 添加异步触发抓取示例
-- [x] 添加查询任务状态示例
-- [x] 添加同步调试模式示例
-- [x] 写明 worker 并发为 `1`
-- [x] 写明本轮不启用 Celery Beat
+- [ ] 新增或扩展 `GET /api/posters/review-queue`
+- [ ] 支持按 `status` 过滤
+- [ ] 支持按 `source_type` 过滤
+- [ ] 支持按 `data_source_id` 过滤
+- [ ] 支持按 `duplicate_group_key` 过滤
+- [ ] 支持按 `quality_score` 排序
+- [ ] 支持分页
+- [ ] 返回每条草稿的质量评分和重复信息
+- [ ] 接口要求 admin 权限
 
-## 8. 本地或服务器语法验证
+## 8. 实现批量审核 API
 
-- [x] 执行 `python -m compileall backend`
-- [x] 确认 Celery 模块可以 import
-- [x] 确认 Flask app 可以启动
-- [x] 确认 `/api/health` 不受影响
-- [x] 确认登录接口不受影响
+- [ ] 新增 `POST /api/posters/bulk-review`
+- [ ] 支持批量 `approve`
+- [ ] 支持批量 `reject`
+- [ ] 支持批量添加 `review_comment`
+- [ ] 单条失败不影响其他条目
+- [ ] 返回成功列表
+- [ ] 返回失败列表
+- [ ] 每条审核动作写入 `AuditLog`
+- [ ] 审核通过后沿用现有知识节点与关系生成逻辑
 
-## 9. 服务器 Docker 验证
+## 9. 增强单条审核审计
 
-- [x] 进入 `backend` 目录
-- [x] 执行 `docker compose down`
-- [x] 执行 `docker compose up -d --build`
-- [x] 执行 `docker compose ps`
-- [x] 确认存在 `api`
-- [x] 确认存在 `worker`
-- [x] 确认存在 `postgres`
-- [x] 确认存在 `redis`
-- [x] 执行 `docker compose logs --tail=100 worker`
-- [x] 确认 worker 正常连接 Redis
-- [x] 执行 `curl http://127.0.0.1/api/health`
-- [x] 登录并记录 JWT token
+- [ ] 保留现有单条审核接口兼容
+- [ ] 审核通过后自动补齐知识节点
+- [ ] 审核驳回后记录驳回原因
+- [ ] 审核操作写入 `AuditLog`
+- [ ] 返回审核后的关联摘要
 
-## 10. 异步抓取验收
+## 10. 实现重复与来源合并 API
 
-- [x] 选择已有 `中山大学计算机学院学术活动` 数据源，或重新创建该数据源
-- [x] 调用 `POST /api/data-sources/{id}/crawl`
-- [x] 确认返回 `202`
-- [x] 确认返回 `task_id`
-- [x] 使用 `GET /api/tasks/{task_id}` 查询状态
-- [x] 确认任务最终为 `SUCCESS`
-- [x] 确认任务结果包含页面统计
-- [x] 确认抓取完成后生成或跳过重复海报草稿
-- [x] 确认 `crawl_logs` 写入成功或失败日志
-- [x] 调用 `POST /api/data-sources/{id}/crawl` 并传 `{"sync": true}`
-- [x] 确认同步调试模式仍可运行
+- [ ] 新增 `GET /api/posters/{id}/duplicates`
+- [ ] 返回同 `source_fingerprint` 的海报
+- [ ] 返回同 `duplicate_group_key` 的海报
+- [ ] 新增 `POST /api/posters/{id}/merge-source`
+- [ ] 合并时保留主海报
+- [ ] 合并时记录被合并来源链接
+- [ ] 合并时写入审计日志
+- [ ] 合并后可选择重新生成知识图谱
 
-## 11. 内存观察
+## 11. 实现知识图谱维护 API
 
-- [x] 执行 `docker stats --no-stream`
-- [x] 触发一次异步真实站点抓取
-- [x] 每隔 30 秒执行一次 `docker stats --no-stream`，至少 3 次
-- [x] 执行 `free -h`
-- [x] 记录 API、worker、PostgreSQL、Redis 内存占用
-- [x] 确认 worker 并发为 `1`
-- [x] 如果 worker 内存过高，不提高并发，并记录下一步优化方向
+- [ ] 新增 `POST /api/posters/{id}/rebuild-knowledge`
+- [ ] 清理该海报旧的 `PosterNode`
+- [ ] 清理该海报相关旧的 `PosterLink`
+- [ ] 重新生成知识节点
+- [ ] 重新生成关联边
+- [ ] 写入审计日志
+- [ ] 新增 `POST /api/knowledge/rebuild`
+- [ ] 支持按状态过滤
+- [ ] 支持按 `source_type` 过滤
+- [ ] 默认只处理 `published` 海报
+- [ ] 返回处理数量、成功数量、失败数量
+- [ ] 如任务较重，使用 Celery 异步执行
 
-## 12. 更新记录
+## 12. 实现审计日志 API
 
-- [x] 更新 `docs/DeploymentRecord.md`
-- [x] 写明新增 Celery app 与 task 模块
-- [x] 写明 Docker Compose worker 配置
-- [x] 写明异步抓取接口验证结果
-- [x] 写明任务状态接口验证结果
-- [x] 写明同步调试模式验证结果
-- [x] 写明 worker 内存观察结果
-- [x] 明确记录本轮未处理 HTTPS、域名、OpenClaw、Celery Beat、定时任务
+- [ ] 新增 `backend/app/api/audit_logs.py`
+- [ ] 注册 audit logs 蓝图
+- [ ] 实现 `GET /api/audit-logs`
+- [ ] 支持按 `actor_id` 过滤
+- [ ] 支持按 `action` 过滤
+- [ ] 支持按 `target_type` 过滤
+- [ ] 支持分页
+- [ ] 仅 admin 可访问
 
-## 13. 提交与推送
+## 13. 实现课程演示导出 API
 
-- [x] 执行 `git status --short`
-- [x] 确认只包含本轮代码与文档变更
-- [x] 执行 `git add backend docs`
-- [x] 执行 `git commit -m "Implement Celery async crawl queue"`
-- [x] 执行 `git push`
+- [ ] 新增 `GET /api/export/posters.json`
+- [ ] 新增 `GET /api/export/knowledge.json`
+- [ ] 新增 `GET /api/export/crawl-report.json`
+- [ ] 新增 `GET /api/demo/summary`
+- [ ] 导出中不包含密码哈希和敏感配置
+- [ ] `demo/summary` 返回海报总数
+- [ ] `demo/summary` 返回已发布数量
+- [ ] `demo/summary` 返回抓取草稿数量
+- [ ] `demo/summary` 返回知识节点数量
+- [ ] `demo/summary` 返回海报关系数量
+- [ ] `demo/summary` 返回数据源数量
+- [ ] `demo/summary` 返回最近一次抓取摘要
+- [ ] 仅 admin 可访问导出接口
 
-## 下一轮建议
+## 14. 文档更新
 
-- [x] 如果异步抓取稳定，下一轮实现 Celery Beat 定时抓取
-- [x] 如果 worker 内存偏高，下一轮优化抓取分页、响应大小和任务分批
-- [x] 如果任务状态体验不足，下一轮补充任务历史表或任务审计表
+- [ ] 更新 `docs/APIExamples.md`
+- [ ] 添加审核队列示例
+- [ ] 添加批量审核示例
+- [ ] 添加重复检测示例
+- [ ] 添加来源合并示例
+- [ ] 添加重建知识图谱示例
+- [ ] 添加审计日志查询示例
+- [ ] 添加导出接口示例
+- [ ] 如示例较长，新增 `docs/AdminWorkflowExamples.md`
+
+## 15. 本地或服务器语法验证
+
+- [ ] 执行 `python -m compileall backend`
+- [ ] 确认 Flask app 可以启动
+- [ ] 确认 Celery worker 可以启动
+- [ ] 确认 `/api/health` 正常
+- [ ] 确认登录接口正常
+
+## 16. 服务器 Docker 验证
+
+- [ ] 进入 `backend` 目录
+- [ ] 执行 `docker compose down`
+- [ ] 执行 `docker compose up -d --build`
+- [ ] 确认 `api`、`worker`、`postgres`、`redis` 都运行
+- [ ] 登录 admin
+- [ ] 触发一次异步抓取
+- [ ] 查询审核队列
+- [ ] 批量审核 2 条草稿
+- [ ] 验证知识图谱生成
+- [ ] 验证重复检测
+- [ ] 验证审计日志
+- [ ] 验证导出接口
+- [ ] 记录 Docker 内存占用
+
+## 17. 更新记录
+
+- [ ] 更新 `docs/DeploymentRecord.md`
+- [ ] 写明新增模型字段
+- [ ] 写明新增 API
+- [ ] 写明重复检测策略
+- [ ] 写明质量评分策略
+- [ ] 写明审核队列和批量审核验证结果
+- [ ] 写明审计日志验证结果
+- [ ] 写明导出接口验证结果
+- [ ] 明确记录本轮未处理 HTTPS、域名、OpenClaw、前端页面
+
+## 18. 提交与推送
+
+- [ ] 执行 `git status --short`
+- [ ] 确认只包含本轮代码与文档变更
+- [ ] 执行 `git add backend docs`
+- [ ] 执行 `git commit -m "Implement activity governance workflow"`
+- [ ] 执行 `git push`
+
+## 可拆分建议
+
+- [ ] 如果一次性太大，第一轮先做审核队列、批量审核、审计日志
+- [ ] 第二轮做重复检测、来源合并、质量评分
+- [ ] 第三轮做知识图谱重建、导出接口、演示报告
