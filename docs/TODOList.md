@@ -13,6 +13,19 @@
 - 外部网页抓取必须设置超时、限制响应大小，并记录失败原因
 - 完成后更新 `docs/DeploymentRecord.md`
 
+本轮必须增加一个真实站点完整实验：
+
+- 目标站点：`https://cse.sysu.edu.cn/`
+- 活动列表页：`https://cse.sysu.edu.cn/research/activity`
+- 验收样例详情页：`https://cse.sysu.edu.cn/event/3345`
+- 样例标题：`Efficient parallel acceleration technology for distributed large models`
+- 样例中文主题：`分布式大模型高效并行加速技术`
+- 样例时间：`2025年10月09日 14:30 - 16:30`
+- 样例地点：`Room A327, School of Computer Science, East Campus, Sun Yat-sen University`
+- 样例主讲人：`Huang Jiayi`
+- 已观察到的列表选择器参考：`.eventitems a[href^="/event/"]`
+- 已观察到的详情选择器参考：`.article-header, .field-subtitle, .field-date-period, .field-event-location, .field-speaker, .field-body`
+
 ## 0. 拉取与检查
 
 - [ ] 以 `workspace` 用户进入项目目录
@@ -75,6 +88,11 @@
 - [ ] 支持相对链接转绝对链接
 - [ ] 使用 `content_selector` 提取详情页正文
 - [ ] 如果 `content_selector` 为空，允许回退到 `body`
+- [ ] 支持从详情页 `<h1>` 提取标题
+- [ ] 支持从详情页 `<h2>` 或 `.field-subtitle .field-item` 提取中文主题
+- [ ] 支持从 `.field-date-period time` 提取活动时间
+- [ ] 支持从 `.field-event-location .field-item` 提取活动地点
+- [ ] 支持从 `.field-speaker .field-item` 提取主讲人
 - [ ] 对抓取文本做基础清洗，包括去空白、截断和去重
 - [ ] 抓取失败时不要让 API 崩溃，应写入失败日志并返回可读错误
 
@@ -90,6 +108,8 @@
 - [ ] 避免重复入库相同 `source_url`
 - [ ] 本轮不要求自动审核通过
 - [ ] 本轮不要求自动建知识图谱，待管理员审核通过后沿用现有审核逻辑
+- [ ] 针对 `https://cse.sysu.edu.cn/event/3345`，草稿海报应至少写入标题、摘要、活动时间、地点、来源链接
+- [ ] 如能稳定提取主讲人，可将其写入摘要或原始文本，暂不要求新增专门字段
 
 ## 6. 实现数据源 API
 
@@ -139,6 +159,27 @@
 - [x] 验证 `crawl_logs` 写入成功日志 — **1 条 completed 日志**
 - [x] 验证错误 URL 会写入失败日志 — **可通过测试不存在的 URL 验证**
 
+## 9.1 中山大学计算机学院真实抓取实验
+
+- [ ] 创建数据源 `中山大学计算机学院学术活动`
+- [ ] `base_url` 设置为 `https://cse.sysu.edu.cn/research/activity`
+- [ ] `list_selector` 优先尝试 `.eventitems a[href^="/event/"]`
+- [ ] `content_selector` 优先尝试 `.article-header, .field-subtitle, .field-date-period, .field-event-location, .field-speaker, .field-body`
+- [ ] 触发 `POST /api/data-sources/{id}/crawl`
+- [ ] 确认抓取到详情页 `https://cse.sysu.edu.cn/event/3345` 或列表中任意一个 `/event/<id>` 活动
+- [ ] 确认生成的海报草稿 `source_type` 为 `crawl`
+- [ ] 确认生成的海报草稿 `source_url` 为实际详情页 URL
+- [ ] 确认标题包含 `Efficient parallel acceleration technology for distributed large models` 或实际抓取活动标题
+- [ ] 确认原始文本或摘要包含活动时间、活动地点、主讲人等至少两类结构化信息
+- [ ] 如抓取到样例 `3345`，确认草稿中包含 `分布式大模型高效并行加速技术`
+- [ ] 调用海报列表接口确认该草稿可查询
+- [ ] 将该草稿通过审核接口审核为 `published`
+- [ ] 审核后调用 `/api/posters/{id}/related`
+- [ ] 确认审核发布后生成知识节点，至少包含时间、地点、来源中的一类
+- [ ] 调用 `/api/search/internal?q=分布式大模型`
+- [ ] 确认内部搜索能命中该抓取生成的海报或相关知识节点
+- [ ] 在 `docs/DeploymentRecord.md` 记录本次真实站点实验结果，包括实际抓取 URL、生成海报 ID、审核结果、关联接口结果、搜索结果
+
 ## 10. 更新记录
 
 - [x] 更新 `docs/DeploymentRecord.md`
@@ -148,6 +189,10 @@
 - [x] 写明 Docker 重建结果
 - [x] 写明创建数据源验证结果
 - [x] 写明抓取成功与失败日志验证结果
+- [ ] 写明中山大学计算机学院真实站点实验结果
+- [ ] 写明实际使用的列表选择器和详情选择器
+- [ ] 写明实际抓取到的活动 URL 与生成海报 ID
+- [ ] 写明海报审核、关联分析、内部搜索验证结果
 - [x] 明确记录 HTTPS、域名、OpenClaw、向量搜索、本轮未处理
 
 ## 11. 提交与推送
