@@ -445,3 +445,30 @@ Extended backend with governance capabilities: review queue, bulk review, duplic
   - Duplicate detection, source merging, and quality scoring second.
   - Knowledge rebuild, export APIs, and demo summary third.
 - Still deferred: HTTPS, domain binding, certificates, OpenClaw, and frontend pages.
+
+## 2026-05-07 (Round 10 Planning - Backend Basic Version Finalization)
+
+### Planning Goal
+
+- Replaced the active `docs/TODOList.md` with a full backend basic-version finalization plan.
+- The new plan is intended for server-side execution and checkbox tracking by the next executor.
+- Scope is limited to backend stabilization and delivery readiness.
+
+### Planned Scope
+
+- Pull latest code and record the baseline commit.
+- Verify Docker Compose, running containers, health check, login, demo summary, export APIs, and memory baseline.
+- Add low-frequency Celery Beat scheduled crawl support with an environment switch.
+- Add database backup and restore scripts or documented commands.
+- Finish production security checks for secrets, default admin password, `.env`, database exposure, Redis exposure, and cloud firewall ports.
+- Freeze backend API documentation with curl examples for core flows.
+- Add a backend smoke-test script for health, login, crawl task, review queue, search, export, and demo summary.
+- Verify service restart and optional server reboot recovery.
+- Record final deployment results and archive the completed TODO.
+
+### Explicitly Deferred
+
+- HTTPS, domain binding, SSL certificates.
+- Formal frontend pages and frontend-backend integration.
+- OpenClaw or other production-grade poster vision analysis.
+- Production monitoring, alerting, and high-concurrency load testing.
