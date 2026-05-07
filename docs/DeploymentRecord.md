@@ -219,3 +219,17 @@ Host github.com
   - `分布式大模型高效并行加速技术` → 1 poster hit
   - `Huang Jiayi` → 1 poster hit + 1 knowledge node hit
   - `并行加速` → 1 poster hit
+
+## 2026-05-07 (Round 6 Planning - Server Memory and Swap)
+
+### Reason
+
+- The server showed high memory usage while running the backend stack and crawler workflow.
+- Before adding Celery or more crawler tasks, the next round prioritizes server stability.
+
+### Next Active TODO
+
+- Archived the completed crawler TODO to `docs/todos/2026-05-07-data-source-crawler.md`.
+- Rotated `docs/TODOList.md` to a server memory stabilization task list.
+- Next target: diagnose memory usage, create a persistent `2G` swap file, tune `vm.swappiness`, observe Docker memory usage, and optionally reduce Gunicorn memory pressure.
+- Still deferred: HTTPS, domain binding, certificate setup, OpenClaw, frontend pages, and Celery feature work.
