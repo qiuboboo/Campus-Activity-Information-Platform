@@ -280,3 +280,13 @@ Host github.com
 ### Still Deferred
 
 - HTTPS, domain, certificates, OpenClaw, frontend pages, and Celery feature work remain deferred.
+
+## 2026-05-07 (Candidate Next Task - Celery Async Crawl Queue)
+
+### Planning Note
+
+- Added `docs/NextTaskPlan.md` as a candidate plan for the round after swap and memory stabilization.
+- The active TODO remains `docs/TODOList.md`, which should still be completed first.
+- Candidate target: convert manual data source crawling from synchronous API execution to a Celery + Redis async task queue.
+- Memory guardrail: initial worker concurrency should stay at `1`.
+- Deferred from the candidate plan: Celery Beat, OpenClaw, high-concurrency crawling, and scheduled crawler automation.
