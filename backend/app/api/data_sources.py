@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..services.crawler_service import crawl_data_source
+from ..services.crawler_service import crawl_data_source as sync_crawl
 from ..services.data_source_service import (
     create_data_source,
     get_crawl_logs,
@@ -9,6 +9,7 @@ from ..services.data_source_service import (
     list_data_sources,
     update_data_source,
 )
+from ..tasks.crawl_tasks import crawl_data_source_task
 from ..utils.auth import roles_required
 
 data_sources_bp = Blueprint("data_sources", __name__)
@@ -88,12 +89,25 @@ def crawl(source_id: int):
     if ds is None:
         return jsonify({"error": "Data source not found"}), 404
 
-    user_id = int(get_jwt_identity())
-    result = crawl_data_source(source_id, user_id)
-    if not result["success"]:
-        return jsonify({"error": result.get("error", "Crawl failed")}), 500
+    data = request.get_json(silent=True) or {}
+    is_sync = data.get("sync", False)
 
-    return jsonify(result), 200
+    user_id = int(get_jwt_identity())
+
+    if is_sync:
+        result = sync_crawl(source_id, user_id)
+        if not result["success"]:
+            return jsonify({"error": result.get("error", "Crawl failed")}), 500
+        return jsonify(result), 200
+
+    task = crawl_data_source_task.delay(source_id, user_id)
+    return (
+        jsonify({
+            "task_id": task.id,
+            "status_url": f"/api/tasks/{task.id}",
+        }),
+        202,
+    )
 
 
 @data_sources_bp.route("/data-sources/<int:source_id>/logs", methods=["GET"])

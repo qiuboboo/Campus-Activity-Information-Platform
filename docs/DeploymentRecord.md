@@ -304,3 +304,51 @@ Host github.com
 - Target: convert manual data source crawling from synchronous API execution to a Celery + Redis async task queue.
 - Guardrail: worker concurrency starts at `1`.
 - Still deferred: HTTPS, domain binding, certificates, OpenClaw, frontend pages, Celery Beat, and scheduled crawler automation.
+
+## 2026-05-07 (Round 8 — Celery Async Crawl Queue Implementation)
+
+### Scope
+
+- This round makes the `POST /api/data-sources/{id}/crawl` endpoint submit a Celery task by default, instead of blocking on the HTTP request.
+- A `GET /api/tasks/{task_id}` endpoint is added to query async task status.
+- Synchronous ("debug") mode is preserved via `{"sync": true}`.
+
+### New Files
+
+- **`backend/app/celery_app.py`** — Celery application initialized with `REDIS_URL` as broker and result backend.
+- **`backend/app/tasks/__init__.py`** — Task package marker.
+- **`backend/app/tasks/crawl_tasks.py`** — Defines `crawl_data_source_task` which calls the existing `crawl_data_source()` inside a Flask app context.
+- **`backend/app/api/tasks.py`** — Implements `GET /api/tasks/{task_id}` returning `task_id`, `state`, `result`, `error`.
+
+### Modified Files
+
+- **`backend/app/api/data_sources.py`** — `POST /api/data-sources/{id}/crawl` now defaults to async (returns `202` + `task_id` + `status_url`); pass `{"sync": true}` for synchronous execution.
+- **`backend/app/__init__.py`** — Registered the `tasks_bp` blueprint at `/api`.
+- **`backend/docker-compose.yml`** — Added `worker` service using the same image, with command `celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1`, `restart: unless-stopped`, depends on `postgres` and `redis`.
+- **`docs/APIExamples.md`** — Added async crawl, task status query, and sync debug mode examples.
+
+### Verification Results
+
+- **4 containers running:** api, worker, postgres, redis.
+- **Worker logs:** connected to `redis://redis:6379/0`, task `app.tasks.crawl_tasks.crawl_data_source_task` registered.
+- **Async crawl:** Returns `202` with `task_id`, task transitions through `PENDING → STARTED → SUCCESS`.
+- **Completed task result:** `{success: true, pages_found: 12, pages_succeeded: 12, posters_created: 0}` (already crawled).
+- **Sync crawl:** `{"sync": true}` still executes synchronously and returns `200` with full result.
+- **Task status API:** Returns correct `state` and `result` for completed and running tasks.
+- **Health check:** `{"status":"ok"}`.
+- **Crawl logs:** Correctly written for both async and sync invocations.
+
+### Memory Observation (3 checks at 30s intervals after async crawl)
+
+| Container | Memory |
+|-----------|--------|
+| API | 151.5 MiB (stable) |
+| Worker | 140.4 MiB (stable, concurrency=1) |
+| PostgreSQL | 26.4 MiB |
+| Redis | 8.7 MiB |
+| System available | 1.1 GiB |
+| Swap used | 0 B |
+
+### Still Deferred
+
+- HTTPS, domain binding, certificates, OpenClaw, frontend pages, Celery Beat, and scheduled crawler automation remain deferred.

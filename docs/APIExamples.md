@@ -68,3 +68,52 @@ curl http://127.0.0.1/api/knowledge/nodes/1 \
 curl "http://127.0.0.1/api/search/internal?q=校团委" \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+## Async Crawl (Celery — default)
+
+Default mode submits a Celery task and returns immediately with a `task_id`:
+
+```bash
+curl -X POST http://127.0.0.1/api/data-sources/1/crawl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Response:
+```json
+{
+  "task_id": "51b230f7-c188-4ec9-9337-dfa542ccf76b",
+  "status_url": "/api/tasks/51b230f7-c188-4ec9-9337-dfa542ccf76b"
+}
+```
+
+## Query Task Status
+
+```bash
+curl http://127.0.0.1/api/tasks/<task_id> \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Response when complete:
+```json
+{
+  "task_id": "51b230f7-c188-4ec9-9337-dfa542ccf76b",
+  "state": "SUCCESS",
+  "result": { "success": true, "posters_created": 5, "pages_found": 12, ... },
+  "error": null
+}
+```
+
+## Sync Crawl (debug mode)
+
+Pass `{"sync": true}` for synchronous execution (blocking call, original behavior):
+
+```bash
+curl -X POST http://127.0.0.1/api/data-sources/1/crawl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"sync": true}'
+```
+
+> **Note:** The Celery worker runs with `--concurrency=1`. Celery Beat and scheduled tasks are not enabled in this round.
