@@ -3,7 +3,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import or_
 
 from ..extensions import db
-from ..models import Poster
+from ..models import Poster, PosterNode, PosterLink
+from ..services.audit_service import create_audit_log
 from ..services.knowledge_service import rebuild_poster_knowledge, related_payload
 from ..services.poster_service import build_poster_fields
 from ..utils.auth import roles_required
@@ -109,10 +110,234 @@ def review_poster(poster_id: int):
     if action not in {"approve", "reject"}:
         return jsonify({"message": "action must be approve or reject"}), 400
 
+    old_status = poster.status
     poster.status = "published" if action == "approve" else "rejected"
     poster.review_comment = comment or None
     if poster.status == "published":
         rebuild_poster_knowledge(poster)
+    db.session.flush()
+
+    actor_id = int(get_jwt_identity())
+    create_audit_log(
+        actor_id=actor_id,
+        action=f"review_{action}",
+        target_type="poster",
+        target_id=poster.id,
+        summary=f"Review {action}: poster '{poster.title}' (status: {old_status} -> {poster.status})",
+        metadata={"review_comment": comment} if comment else None,
+    )
     db.session.commit()
 
     return jsonify({"item": poster.to_dict()})
+
+
+@posters_bp.get("/review-queue")
+@roles_required("admin")
+def review_queue():
+    status_filter = (request.args.get("status") or "").strip()
+    source_type = (request.args.get("source_type") or "").strip()
+    data_source_id = request.args.get("data_source_id", type=int)
+    duplicate_group_key = (request.args.get("duplicate_group_key") or "").strip()
+    sort_by = (request.args.get("sort_by") or "-created_at").strip()
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = max(min(int(request.args.get("per_page", 20)), 100), 1)
+
+    query = Poster.query
+
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    else:
+        query = query.filter(Poster.status.in_(["draft", "published", "rejected"]))
+
+    if source_type:
+        query = query.filter_by(source_type=source_type)
+    if data_source_id is not None:
+        query = query.filter(Poster.created_by == data_source_id)
+    if duplicate_group_key:
+        query = query.filter_by(duplicate_group_key=duplicate_group_key)
+
+    # Sorting
+    if sort_by.startswith("-"):
+        sort_col = getattr(Poster, sort_by[1:], None)
+        if sort_col is not None:
+            query = query.order_by(sort_col.desc())
+    else:
+        sort_col = getattr(Poster, sort_by, None)
+        if sort_col is not None:
+            query = query.order_by(sort_col)
+
+    items = query.paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        "items": [poster.to_dict() for poster in items.items],
+        "page": page,
+        "per_page": per_page,
+        "total": items.total,
+    })
+
+
+@posters_bp.post("/bulk-review")
+@roles_required("admin")
+def bulk_review():
+    payload = request.get_json(silent=True) or {}
+    poster_ids = payload.get("poster_ids", [])
+    action = (payload.get("action") or "").strip().lower()
+    comment = (payload.get("comment") or "").strip()
+
+    if not poster_ids:
+        return jsonify({"error": "poster_ids is required"}), 400
+    if action not in {"approve", "reject"}:
+        return jsonify({"message": "action must be approve or reject"}), 400
+
+    actor_id = int(get_jwt_identity())
+    succeeded = []
+    failed = []
+
+    for pid in poster_ids:
+        poster = Poster.query.get(pid)
+        if poster is None:
+            failed.append({"id": pid, "error": "not found"})
+            continue
+
+        old_status = poster.status
+        poster.status = "published" if action == "approve" else "rejected"
+        poster.review_comment = comment or None
+        if poster.status == "published":
+            try:
+                rebuild_poster_knowledge(poster)
+            except Exception:
+                failed.append({"id": pid, "error": "knowledge rebuild failed"})
+                continue
+        db.session.flush()
+
+        create_audit_log(
+            actor_id=actor_id,
+            action=f"bulk_review_{action}",
+            target_type="poster",
+            target_id=poster.id,
+            summary=f"Bulk review {action}: poster '{poster.title}' (status: {old_status} -> {poster.status})",
+            metadata={"review_comment": comment} if comment else None,
+        )
+        succeeded.append({"id": pid, "status": poster.status})
+
+    db.session.commit()
+    return jsonify({"succeeded": succeeded, "failed": failed})
+
+
+@posters_bp.get("/<int:poster_id>/duplicates")
+@roles_required("admin")
+def get_duplicates(poster_id: int):
+    poster = Poster.query.get_or_404(poster_id)
+    seen = set()
+    candidates = []
+
+    # Same duplicate_group_key
+    if poster.duplicate_group_key:
+        group_members = Poster.query.filter(
+            Poster.duplicate_group_key == poster.duplicate_group_key,
+            Poster.id != poster.id,
+        ).all()
+        for p in group_members:
+            seen.add(p.id)
+            candidates.append(p)
+
+    # Same source_fingerprint
+    if poster.source_fingerprint:
+        fingerprint_members = Poster.query.filter(
+            Poster.source_fingerprint == poster.source_fingerprint,
+            Poster.id != poster.id,
+        ).all()
+        for p in fingerprint_members:
+            if p.id not in seen:
+                seen.add(p.id)
+                candidates.append(p)
+
+    return jsonify({
+        "poster": poster.to_dict(),
+        "duplicates": [p.to_dict() for p in candidates],
+        "count": len(candidates),
+    })
+
+
+@posters_bp.post("/<int:poster_id>/merge-source")
+@roles_required("admin")
+def merge_source(poster_id: int):
+    poster = Poster.query.get_or_404(poster_id)
+    payload = request.get_json(silent=True) or {}
+    source_poster_id = payload.get("source_poster_id")
+
+    if not source_poster_id:
+        return jsonify({"error": "source_poster_id is required"}), 400
+
+    source = Poster.query.get(source_poster_id)
+    if source is None:
+        return jsonify({"error": "Source poster not found"}), 404
+
+    actor_id = int(get_jwt_identity())
+    merged_urls = []
+
+    # Absorb source URLs into main poster
+    if source.source_url and source.source_url != poster.source_url:
+        merged_urls.append(source.source_url)
+
+    # Record merged source_urls in metadata
+    metadata = {
+        "merged_from_poster_id": source.id,
+        "merged_from_title": source.title,
+        "merged_urls": merged_urls,
+    }
+
+    # Delete source poster (cascade will remove its nodes/links)
+    db.session.delete(source)
+    db.session.flush()
+
+    # Rebuild knowledge for the main poster
+    rebuild_poster_knowledge(poster)
+    db.session.flush()
+
+    create_audit_log(
+        actor_id=actor_id,
+        action="merge_source",
+        target_type="poster",
+        target_id=poster.id,
+        summary=f"Merged poster #{source.id} '{source.title}' into poster #{poster.id} '{poster.title}'",
+        metadata=metadata,
+    )
+    db.session.commit()
+
+    return jsonify({
+        "item": poster.to_dict(),
+        "merged": {"id": source_poster_id, "title": source.title, "urls": merged_urls},
+    })
+
+
+@posters_bp.post("/<int:poster_id>/rebuild-knowledge")
+@roles_required("admin")
+def rebuild_poster_knowledge_endpoint(poster_id: int):
+    poster = Poster.query.get_or_404(poster_id)
+
+    # Clean old knowledge
+    PosterNode.query.filter_by(poster_id=poster.id).delete()
+    PosterLink.query.filter_by(from_poster_id=poster.id).delete()
+
+    result = rebuild_poster_knowledge(poster)
+    db.session.flush()
+
+    actor_id = int(get_jwt_identity())
+    create_audit_log(
+        actor_id=actor_id,
+        action="rebuild_knowledge",
+        target_type="poster",
+        target_id=poster.id,
+        summary=f"Rebuilt knowledge for poster '{poster.title}'",
+        metadata={
+            "nodes_created": len(result["nodes"]),
+            "links_created": len(result["links"]),
+        },
+    )
+    db.session.commit()
+
+    return jsonify({
+        "item": poster.to_dict(),
+        "nodes_created": len(result["nodes"]),
+        "links_created": len(result["links"]),
+    })

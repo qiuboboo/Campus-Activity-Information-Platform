@@ -358,6 +358,82 @@ Host github.com
 ### Rotation
 
 - Archived the completed Celery async crawl TODO to `docs/todos/2026-05-07-celery-async-crawl.md`.
+
+## 2026-05-07 (Round 9 — Activity Governance and Admin Workflow)
+
+### Scope
+
+Extended backend with governance capabilities: review queue, bulk review, duplicate detection, quality scoring, audit logging, knowledge rebuild, and demo export APIs.
+
+### New Fields on Existing Models
+
+- **Poster**: added `duplicate_group_key`, `source_fingerprint`, `quality_score`, `quality_notes`, `last_crawled_at` (all nullable)
+- **DataSource**: added `source_level` (official/internal/external), `owner`, `notes`, `last_success_at`, `last_failure_at`, `last_error_message`
+- **CrawlLog**: added `duplicates_skipped`, `drafts_created`, `average_quality_score`
+- **User**: added `audit_logs` relationship
+
+### New Model
+
+- **AuditLog**: tracks actor_id, action, target_type, target_id, summary, metadata_json
+
+### New Service Files
+
+- `backend/app/services/audit_service.py` — `create_audit_log()` with JSON metadata serialization
+- `backend/app/services/dedup_service.py` — MD5-based dedup via source_key (exact URL) and fingerprint (title+date+location)
+- `backend/app/services/quality_service.py` — 0–100 quality scoring with configurable rules
+
+### Strategy
+
+- **Duplicate detection**: tiered — exact source URL match skips creation; fingerprint match (same title+date+location) creates draft with `duplicate_group_key`
+- **Quality scoring**: title completeness (−30/−15), summary (−15), event_time (−15), location (−10), source_url (−10), raw_text length (−10/−5), duplicate penalty (−20), official source bonus (+10). Score clamped to [0, 100]
+- **Audit logging**: all review, bulk-review, merge, and rebuild actions logged with actor, action type, summary, and metadata
+
+### New API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/posters/review-queue` | Review queue with filters (status, source_type, duplicate_group_key) and sort by quality_score |
+| POST | `/api/posters/bulk-review` | Batch approve/reject with audit logging |
+| GET | `/api/posters/{id}/duplicates` | Find duplicates by `duplicate_group_key` and `source_fingerprint` |
+| POST | `/api/posters/{id}/merge-source` | Merge source poster into main, record merged URLs |
+| POST | `/api/posters/{id}/rebuild-knowledge` | Rebuild knowledge nodes and links for a single poster |
+| POST | `/api/knowledge/rebuild` | Rebuild knowledge for all published (or filtered) posters |
+| GET | `/api/audit-logs` | Paginated audit log with actor/action/target_type filters |
+| GET | `/api/export/posters.json` | Export all posters (no raw_text) |
+| GET | `/api/export/knowledge.json` | Export all knowledge nodes |
+| GET | `/api/export/crawl-report.json` | Export recent crawl logs |
+| GET | `/api/demo/summary` | Aggregated platform summary |
+
+### Existing Enhancements
+
+- **POST /api/data-sources**: accepts `source_level`, `owner`, `notes` in create and update
+- **POST /api/data-sources/{id}/crawl**: integrates dedup detection and quality scoring; updates `last_success_at`/`last_failure_at` on data source
+- **POST /api/posters/{id}/review**: writes audit log on approve/reject
+
+### Verification Results
+
+- **Duplicate detection**: First crawl: 12 created, 0 duplicates; Second crawl: 0 created, 12 duplicates skipped
+- **Quality scoring**: All 12 crawled posters scored 100 (official source bonus + complete fields)
+- **Review queue**: Returns 12 drafts with quality scores and notes, filterable by status
+- **Bulk review**: 2 drafts approved in batch, audit logs written for each
+- **Knowledge rebuild**: Single poster rebuilt (4 nodes, 0 links); Full rebuild (5 published posters: 5 succeeded, 0 failed)
+- **Audit logs**: Correctly recorded bulk_review_approve entries with actor, summary, metadata
+- **Export**: posters.json (15), knowledge.json (24), crawl-report.json (2)
+- **Health check**: `{"status":"ok"}`
+
+### Docker Memory (after crawl)
+
+| Container | Memory |
+|-----------|--------|
+| API | 136.3 MiB (3.90%) |
+| Worker | 79.9 MiB (2.29%) |
+| PostgreSQL | 49.8 MiB (1.42%) |
+| Redis | 4.4 MiB (0.12%) |
+| System available | ~1.4 GiB |
+
+### Still Deferred
+
+- HTTPS, domain binding, certificates, OpenClaw, frontend pages, Celery Beat, and scheduled crawler automation remain deferred.
 - Rotated `docs/TODOList.md` to a longer backend governance task list.
 
 ### Next Active TODO

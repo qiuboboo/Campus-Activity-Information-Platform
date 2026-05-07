@@ -42,6 +42,9 @@ def create():
             content_selector=data.get("content_selector"),
             crawl_mode=data.get("crawl_mode", "basic"),
             enabled=data.get("enabled", True),
+            source_level=data.get("source_level", "external"),
+            owner=data.get("owner"),
+            notes=data.get("notes"),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -75,6 +78,9 @@ def update(source_id: int):
             content_selector=data.get("content_selector"),
             crawl_mode=data.get("crawl_mode"),
             enabled=data.get("enabled"),
+            source_level=data.get("source_level"),
+            owner=data.get("owner"),
+            notes=data.get("notes"),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

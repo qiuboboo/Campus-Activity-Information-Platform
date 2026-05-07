@@ -29,11 +29,17 @@ def create_data_source(
     content_selector: str | None = None,
     crawl_mode: str = "basic",
     enabled: bool = True,
+    source_level: str = "external",
+    owner: str | None = None,
+    notes: str | None = None,
 ) -> DataSource:
     base_url = _validate_base_url(base_url)
 
     if crawl_mode != "basic":
         raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Only 'basic' is supported.")
+
+    if source_level not in ("official", "internal", "external"):
+        raise ValueError("source_level must be one of: official, internal, external")
 
     ds = DataSource(
         name=name.strip(),
@@ -42,6 +48,9 @@ def create_data_source(
         content_selector=content_selector.strip() if content_selector else None,
         crawl_mode=crawl_mode,
         enabled=enabled,
+        source_level=source_level,
+        owner=owner.strip() if owner else None,
+        notes=notes.strip() if notes else None,
     )
     db.session.add(ds)
     db.session.commit()
@@ -56,6 +65,9 @@ def update_data_source(
     content_selector: str | None = None,
     crawl_mode: str | None = None,
     enabled: bool | None = None,
+    source_level: str | None = None,
+    owner: str | None = None,
+    notes: str | None = None,
 ) -> DataSource | None:
     ds = get_data_source(data_source_id)
     if ds is None:
@@ -75,6 +87,14 @@ def update_data_source(
         ds.crawl_mode = crawl_mode
     if enabled is not None:
         ds.enabled = enabled
+    if source_level is not None:
+        if source_level not in ("official", "internal", "external"):
+            raise ValueError("source_level must be one of: official, internal, external")
+        ds.source_level = source_level
+    if owner is not None:
+        ds.owner = owner.strip() if owner else None
+    if notes is not None:
+        ds.notes = notes.strip() if notes else None
 
     db.session.commit()
     return ds
@@ -103,6 +123,9 @@ def finish_crawl_log(
     pages_found: int = 0,
     pages_succeeded: int = 0,
     pages_failed: int = 0,
+    duplicates_skipped: int = 0,
+    drafts_created: int = 0,
+    average_quality_score: float | None = None,
 ) -> None:
     from datetime import datetime
 
@@ -112,6 +135,9 @@ def finish_crawl_log(
     log.pages_found = pages_found
     log.pages_succeeded = pages_succeeded
     log.pages_failed = pages_failed
+    log.duplicates_skipped = duplicates_skipped
+    log.drafts_created = drafts_created
+    log.average_quality_score = average_quality_score
     db.session.commit()
 
 

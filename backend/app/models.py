@@ -24,6 +24,9 @@ class User(TimestampMixin, db.Model):
     role = db.Column(db.String(20), default="viewer", nullable=False)
 
     posters = db.relationship("Poster", back_populates="creator", lazy=True)
+    audit_logs = db.relationship(
+        "AuditLog", back_populates="actor", foreign_keys="AuditLog.actor_id", lazy=True
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -55,6 +58,11 @@ class Poster(TimestampMixin, db.Model):
     source_url = db.Column(db.Text, nullable=True)
     review_comment = db.Column(db.Text, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    duplicate_group_key = db.Column(db.String(64), nullable=True, index=True)
+    source_fingerprint = db.Column(db.String(64), nullable=True, index=True)
+    quality_score = db.Column(db.Integer, nullable=True)
+    quality_notes = db.Column(db.Text, nullable=True)
+    last_crawled_at = db.Column(db.DateTime, nullable=True)
 
     creator = db.relationship("User", back_populates="posters")
     nodes = db.relationship(
@@ -94,6 +102,11 @@ class Poster(TimestampMixin, db.Model):
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "duplicate_group_key": self.duplicate_group_key,
+            "source_fingerprint": self.source_fingerprint,
+            "quality_score": self.quality_score,
+            "quality_notes": self.quality_notes,
+            "last_crawled_at": self.last_crawled_at.isoformat() if self.last_crawled_at else None,
         }
 
 
@@ -210,6 +223,12 @@ class DataSource(TimestampMixin, db.Model):
     content_selector = db.Column(db.String(500), nullable=True)
     enabled = db.Column(db.Boolean, default=True, nullable=False)
     crawl_mode = db.Column(db.String(20), default="basic", nullable=False)
+    source_level = db.Column(db.String(20), default="external", nullable=False)
+    owner = db.Column(db.String(100), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    last_success_at = db.Column(db.DateTime, nullable=True)
+    last_failure_at = db.Column(db.DateTime, nullable=True)
+    last_error_message = db.Column(db.Text, nullable=True)
 
     crawl_logs = db.relationship(
         "CrawlLog",
@@ -227,6 +246,12 @@ class DataSource(TimestampMixin, db.Model):
             "content_selector": self.content_selector,
             "enabled": self.enabled,
             "crawl_mode": self.crawl_mode,
+            "source_level": self.source_level,
+            "owner": self.owner,
+            "notes": self.notes,
+            "last_success_at": self.last_success_at.isoformat() if self.last_success_at else None,
+            "last_failure_at": self.last_failure_at.isoformat() if self.last_failure_at else None,
+            "last_error_message": self.last_error_message,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
@@ -244,6 +269,9 @@ class CrawlLog(TimestampMixin, db.Model):
     pages_found = db.Column(db.Integer, default=0, nullable=False)
     pages_succeeded = db.Column(db.Integer, default=0, nullable=False)
     pages_failed = db.Column(db.Integer, default=0, nullable=False)
+    duplicates_skipped = db.Column(db.Integer, default=0, nullable=False)
+    drafts_created = db.Column(db.Integer, default=0, nullable=False)
+    average_quality_score = db.Column(db.Float, nullable=True)
 
     data_source = db.relationship("DataSource", back_populates="crawl_logs")
 
@@ -258,6 +286,36 @@ class CrawlLog(TimestampMixin, db.Model):
             "pages_found": self.pages_found,
             "pages_succeeded": self.pages_succeeded,
             "pages_failed": self.pages_failed,
+            "duplicates_skipped": self.duplicates_skipped,
+            "drafts_created": self.drafts_created,
+            "average_quality_score": self.average_quality_score,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+        }
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    action = db.Column(db.String(50), nullable=False)
+    target_type = db.Column(db.String(50), nullable=True)
+    target_id = db.Column(db.Integer, nullable=True)
+    summary = db.Column(db.Text, nullable=True)
+    metadata_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    actor = db.relationship("User", back_populates="audit_logs", foreign_keys=[actor_id])
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "actor_id": self.actor_id,
+            "action": self.action,
+            "target_type": self.target_type,
+            "target_id": self.target_id,
+            "summary": self.summary,
+            "metadata_json": self.metadata_json,
+            "created_at": self.created_at.isoformat(),
         }

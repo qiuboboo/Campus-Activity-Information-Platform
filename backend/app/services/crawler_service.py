@@ -11,6 +11,8 @@ from .data_source_service import (
     finish_crawl_log,
     get_data_source,
 )
+from .dedup_service import check_duplicates, generate_source_key, generate_fingerprint
+from .quality_service import score_poster
 
 _REQUEST_TIMEOUT = 10
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB
@@ -143,17 +145,27 @@ def _create_draft_poster(
     event_time: datetime | None = None,
     location: str | None = None,
     organizer: str | None = None,
-) -> Poster | None:
-    existing = Poster.query.filter_by(source_url=source_url).first()
-    if existing:
-        return None
+    is_official: bool = False,
+) -> tuple[Poster | None, bool]:
+    """Create a draft poster. Returns (poster, is_duplicate).
 
-    summary = raw_text[:_MAX_SUMMARY_LENGTH].replace("\n", " ").strip()
+    Exact URL duplicates are skipped (returns None).
+    Suspected content duplicates (same fingerprint, different source) are created
+    with duplicate_group_key set.
+    """
+    # Check exact URL duplicate first — skip entirely
+    existing_by_url = Poster.query.filter_by(source_url=source_url).first()
+    if existing_by_url:
+        return None, True
+
+    # Content-based dedup check
+    dup = check_duplicates(title, source_url, event_time, location, exclude_id=None)
+    is_duplicate = dup["is_duplicate"]
 
     poster = Poster(
         title=title,
         raw_text=raw_text,
-        summary=summary,
+        summary=raw_text[:_MAX_SUMMARY_LENGTH].replace("\n", " ").strip(),
         event_time=event_time,
         location=location,
         organizer=organizer,
@@ -162,8 +174,24 @@ def _create_draft_poster(
         source_url=source_url,
         created_by=created_by,
     )
+
+    # Set dedup fingerprint
+    source_key = generate_source_key(source_url)
+    poster.source_fingerprint = source_key or generate_fingerprint(title, event_time, location)
+    if is_duplicate:
+        poster.duplicate_group_key = dup["duplicate_group_key"]
+
+    # Quality scoring
+    quality, notes_list = score_poster(
+        poster,
+        is_suspected_duplicate=is_duplicate,
+        is_official_source=is_official,
+    )
+    poster.quality_score = quality
+    poster.quality_notes = "; ".join(notes_list) if notes_list else None
+
     db.session.add(poster)
-    return poster
+    return poster, is_duplicate
 
 
 def crawl_data_source(data_source_id: int, user_id: int) -> dict:
@@ -174,6 +202,7 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
     if not ds.enabled:
         return {"success": False, "error": "Data source is disabled"}
 
+    is_official = ds.source_level == "official"
     log = create_crawl_log(data_source_id)
 
     try:
@@ -192,8 +221,10 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         return {"success": True, "posters_created": 0}
 
     posters_created = 0
+    duplicates_skipped = 0
     pages_succeeded = 0
     pages_failed = 0
+    quality_scores = []
 
     for url in detail_urls:
         try:
@@ -205,10 +236,9 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
                 pages_failed += 1
                 continue
 
-            # Try structured extraction first for a better title
             structured = _extract_structured_fields(detail_html)
             title = structured.get("title") or _extract_title_from_html(detail_html, url)
-            poster = _create_draft_poster(
+            poster, is_dup = _create_draft_poster(
                 title,
                 raw_text,
                 url,
@@ -216,9 +246,13 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
                 event_time=structured.get("event_time"),
                 location=structured.get("location"),
                 organizer=structured.get("organizer"),
+                is_official=is_official,
             )
             if poster:
                 posters_created += 1
+                quality_scores.append(poster.quality_score or 0)
+            if is_dup:
+                duplicates_skipped += 1
             pages_succeeded += 1
         except requests.RequestException:
             pages_failed += 1
@@ -227,6 +261,8 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
 
     db.session.commit()
 
+    avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
+
     status = "failed" if pages_succeeded == 0 and pages_failed > 0 else "completed"
     finish_crawl_log(
         log,
@@ -234,11 +270,24 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         pages_found=len(detail_urls),
         pages_succeeded=pages_succeeded,
         pages_failed=pages_failed,
+        duplicates_skipped=duplicates_skipped,
+        drafts_created=posters_created,
+        average_quality_score=avg_quality,
     )
+
+    # Update data source timestamps
+    from datetime import datetime
+    if pages_succeeded > 0:
+        ds.last_success_at = datetime.utcnow()
+    if pages_failed > 0:
+        ds.last_failure_at = datetime.utcnow()
+    db.session.commit()
 
     return {
         "success": True,
         "posters_created": posters_created,
+        "duplicates_skipped": duplicates_skipped,
+        "average_quality_score": avg_quality,
         "pages_found": len(detail_urls),
         "pages_succeeded": pages_succeeded,
         "pages_failed": pages_failed,
