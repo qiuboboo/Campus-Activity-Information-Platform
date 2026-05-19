@@ -1,5 +1,6 @@
 from flask import Flask
 
+from .api.ai import ai_bp
 from .api.audit_logs import audit_logs_bp
 from .api.auth import auth_bp
 from .api.data_sources import data_sources_bp
@@ -31,6 +32,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     jwt.init_app(app)
     cors.init_app(app)
 
+    app.register_blueprint(ai_bp, url_prefix="/api")
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(posters_bp, url_prefix="/api/posters")

@@ -62,6 +62,8 @@ class Poster(TimestampMixin, db.Model):
     source_fingerprint = db.Column(db.String(64), nullable=True, index=True)
     quality_score = db.Column(db.Integer, nullable=True)
     quality_notes = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.Text, nullable=True)
+    activity_type = db.Column(db.String(50), nullable=True)
     last_crawled_at = db.Column(db.DateTime, nullable=True)
 
     creator = db.relationship("User", back_populates="posters")
@@ -106,6 +108,8 @@ class Poster(TimestampMixin, db.Model):
             "source_fingerprint": self.source_fingerprint,
             "quality_score": self.quality_score,
             "quality_notes": self.quality_notes,
+            "tags": self.tags,
+            "activity_type": self.activity_type,
             "last_crawled_at": self.last_crawled_at.isoformat() if self.last_crawled_at else None,
         }
 
@@ -226,6 +230,9 @@ class DataSource(TimestampMixin, db.Model):
     source_level = db.Column(db.String(20), default="external", nullable=False)
     owner = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    # --- Crawler security ---
+    allowed_domains = db.Column(db.Text, nullable=True)
+    request_interval = db.Column(db.Integer, default=2, nullable=False)
     last_success_at = db.Column(db.DateTime, nullable=True)
     last_failure_at = db.Column(db.DateTime, nullable=True)
     last_error_message = db.Column(db.Text, nullable=True)
@@ -236,6 +243,11 @@ class DataSource(TimestampMixin, db.Model):
         cascade="all, delete-orphan",
         lazy=True,
     )
+
+    def get_allowed_domains(self) -> list[str]:
+        if not self.allowed_domains:
+            return []
+        return [d.strip() for d in self.allowed_domains.split(",") if d.strip()]
 
     def to_dict(self) -> dict:
         return {
@@ -249,6 +261,8 @@ class DataSource(TimestampMixin, db.Model):
             "source_level": self.source_level,
             "owner": self.owner,
             "notes": self.notes,
+            "allowed_domains": self.allowed_domains,
+            "request_interval": self.request_interval,
             "last_success_at": self.last_success_at.isoformat() if self.last_success_at else None,
             "last_failure_at": self.last_failure_at.isoformat() if self.last_failure_at else None,
             "last_error_message": self.last_error_message,

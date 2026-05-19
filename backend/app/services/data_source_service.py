@@ -32,11 +32,13 @@ def create_data_source(
     source_level: str = "external",
     owner: str | None = None,
     notes: str | None = None,
+    allowed_domains: str | None = None,
+    request_interval: int | None = None,
 ) -> DataSource:
     base_url = _validate_base_url(base_url)
 
-    if crawl_mode != "basic":
-        raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Only 'basic' is supported.")
+    if crawl_mode not in ("basic", "mcp"):
+        raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Use 'basic' or 'mcp'.")
 
     if source_level not in ("official", "internal", "external"):
         raise ValueError("source_level must be one of: official, internal, external")
@@ -51,6 +53,8 @@ def create_data_source(
         source_level=source_level,
         owner=owner.strip() if owner else None,
         notes=notes.strip() if notes else None,
+        allowed_domains=allowed_domains.strip() if allowed_domains else None,
+        request_interval=request_interval or 2,
     )
     db.session.add(ds)
     db.session.commit()
@@ -68,6 +72,8 @@ def update_data_source(
     source_level: str | None = None,
     owner: str | None = None,
     notes: str | None = None,
+    allowed_domains: str | None = None,
+    request_interval: int | None = None,
 ) -> DataSource | None:
     ds = get_data_source(data_source_id)
     if ds is None:
@@ -82,8 +88,8 @@ def update_data_source(
     if content_selector is not None:
         ds.content_selector = content_selector.strip() if content_selector else None
     if crawl_mode is not None:
-        if crawl_mode != "basic":
-            raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Only 'basic' is supported.")
+        if crawl_mode not in ("basic", "mcp"):
+            raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Use 'basic' or 'mcp'.")
         ds.crawl_mode = crawl_mode
     if enabled is not None:
         ds.enabled = enabled
@@ -95,6 +101,10 @@ def update_data_source(
         ds.owner = owner.strip() if owner else None
     if notes is not None:
         ds.notes = notes.strip() if notes else None
+    if allowed_domains is not None:
+        ds.allowed_domains = allowed_domains.strip() if allowed_domains else None
+    if request_interval is not None:
+        ds.request_interval = request_interval
 
     db.session.commit()
     return ds

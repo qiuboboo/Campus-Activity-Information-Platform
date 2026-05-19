@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..services.crawler_service import crawl_data_source as sync_crawl
+from ..services.crawler_service import crawl_mcp_source as sync_mcp_crawl
 from ..services.data_source_service import (
     create_data_source,
     get_crawl_logs,
@@ -45,6 +46,8 @@ def create():
             source_level=data.get("source_level", "external"),
             owner=data.get("owner"),
             notes=data.get("notes"),
+            allowed_domains=data.get("allowed_domains"),
+            request_interval=data.get("request_interval"),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -81,6 +84,8 @@ def update(source_id: int):
             source_level=data.get("source_level"),
             owner=data.get("owner"),
             notes=data.get("notes"),
+            allowed_domains=data.get("allowed_domains"),
+            request_interval=data.get("request_interval"),
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -101,7 +106,16 @@ def crawl(source_id: int):
     user_id = int(get_jwt_identity())
 
     if is_sync:
-        result = sync_crawl(source_id, user_id)
+        if ds.crawl_mode == "mcp":
+            result = sync_mcp_crawl(source_id, user_id)
+        else:
+            result = sync_crawl(source_id, user_id)
+        if not result["success"]:
+            return jsonify({"error": result.get("error", "Crawl failed")}), 500
+        return jsonify(result), 200
+
+    if ds.crawl_mode == "mcp":
+        result = sync_mcp_crawl(source_id, user_id)
         if not result["success"]:
             return jsonify({"error": result.get("error", "Crawl failed")}), 500
         return jsonify(result), 200

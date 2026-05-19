@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from flask import current_app
 
 from ..extensions import db
 from ..models import Poster
@@ -13,6 +14,20 @@ from .data_source_service import (
 )
 from .dedup_service import check_duplicates, generate_source_key, generate_fingerprint
 from .quality_service import score_poster
+from collections import defaultdict
+
+from .security_service import (
+    SecurityError,
+    check_redirect_safety,
+    mask_sensitive,
+    rate_limit,
+    reset_rate_limit,
+    sanitise_crawled_text,
+    validate_target_url,
+)
+
+# Track consecutive security failures per data source (process-local)
+_security_failures: dict[int, int] = defaultdict(int)
 
 _REQUEST_TIMEOUT = 10
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB
@@ -25,14 +40,21 @@ _MAX_TITLE_LENGTH = 200
 _MAX_SUMMARY_LENGTH = 500
 
 
-def _fetch(url: str) -> str:
+def _fetch(url: str, allowed_domains: list[str] | None = None) -> str:
+    validate_target_url(url, allowed_domains)
+
     resp = requests.get(
         url,
         timeout=_REQUEST_TIMEOUT,
         headers={"User-Agent": _USER_AGENT},
         stream=True,
+        allow_redirects=True,
     )
     resp.raise_for_status()
+
+    # Check redirect safety — final URL must be same domain
+    if resp.history:
+        check_redirect_safety(url, resp.url)
 
     content = b""
     for chunk in resp.iter_content(chunk_size=8192, decode_unicode=False):
@@ -85,11 +107,9 @@ def _extract_title_from_html(html: str, url: str) -> str:
 
 
 def _parse_datetime(value: str) -> datetime | None:
-    # Handle ISO 8601: strip trailing Z, strip fractional seconds
     val = value.strip()
     if val.endswith("Z"):
         val = val[:-1]
-    # Remove trailing +00:00 timezone offset for simplicity
     if "+" in val:
         val = val.split("+")[0]
     for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
@@ -105,14 +125,12 @@ def _extract_structured_fields(html: str) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     fields: dict = {}
 
-    # Title from <h1> (preferred over <title> for article pages)
     h1 = soup.select_one("h1")
     if h1:
         title_text = h1.get_text(strip=True)
         if title_text:
             fields["title"] = title_text[:_MAX_TITLE_LENGTH]
 
-    # Event time from <time datetime="..."> inside .field-date-period
     time_tag = soup.select_one(".field-date-period time[datetime]") or soup.select_one("time[datetime]")
     if time_tag:
         dt_str = time_tag["datetime"]
@@ -120,14 +138,12 @@ def _extract_structured_fields(html: str) -> dict:
         if parsed:
             fields["event_time"] = parsed
 
-    # Location from .field-event-location .field-item
     loc_tag = soup.select_one(".field-event-location .field-item")
     if loc_tag:
         loc_text = loc_tag.get_text(strip=True)
         if loc_text:
             fields["location"] = loc_text
 
-    # Speaker / organizer from .field-speaker .field-item
     speaker_tag = soup.select_one(".field-speaker .field-item")
     if speaker_tag:
         speaker_text = speaker_tag.get_text(strip=True)
@@ -147,18 +163,10 @@ def _create_draft_poster(
     organizer: str | None = None,
     is_official: bool = False,
 ) -> tuple[Poster | None, bool]:
-    """Create a draft poster. Returns (poster, is_duplicate).
-
-    Exact URL duplicates are skipped (returns None).
-    Suspected content duplicates (same fingerprint, different source) are created
-    with duplicate_group_key set.
-    """
-    # Check exact URL duplicate first — skip entirely
     existing_by_url = Poster.query.filter_by(source_url=source_url).first()
     if existing_by_url:
         return None, True
 
-    # Content-based dedup check
     dup = check_duplicates(title, source_url, event_time, location, exclude_id=None)
     is_duplicate = dup["is_duplicate"]
 
@@ -175,13 +183,11 @@ def _create_draft_poster(
         created_by=created_by,
     )
 
-    # Set dedup fingerprint
     source_key = generate_source_key(source_url)
     poster.source_fingerprint = source_key or generate_fingerprint(title, event_time, location)
     if is_duplicate:
         poster.duplicate_group_key = dup["duplicate_group_key"]
 
-    # Quality scoring
     quality, notes_list = score_poster(
         poster,
         is_suspected_duplicate=is_duplicate,
@@ -203,12 +209,21 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         return {"success": False, "error": "Data source is disabled"}
 
     is_official = ds.source_level == "official"
+    allowed_domains = ds.get_allowed_domains()
+    interval = ds.request_interval or current_app.config.get("CRAWL_REQUEST_INTERVAL", 2)
+    max_pages = current_app.config.get("CRAWL_MAX_PAGES", 50)
+
+    # For basic mode, allowed_domains is required
+    if ds.crawl_mode == "basic" and not allowed_domains:
+        return {"success": False, "error": "allowed_domains is required for basic crawl mode"}
+
     log = create_crawl_log(data_source_id)
 
     try:
-        html = _fetch(ds.base_url)
-    except requests.RequestException as e:
-        finish_crawl_log(log, "failed", message=f"HTTP fetch error: {e}")
+        rate_limit(data_source_id, interval)
+        html = _fetch(ds.base_url, allowed_domains)
+    except (SecurityError, requests.RequestException) as e:
+        finish_crawl_log(log, "failed", message=f"Fetch error: {e}")
         return {"success": False, "error": str(e)}
 
     if ds.list_selector:
@@ -220,6 +235,10 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         finish_crawl_log(log, "completed", message="No links found", pages_found=0)
         return {"success": True, "posters_created": 0}
 
+    # Enforce max pages
+    if len(detail_urls) > max_pages:
+        detail_urls = detail_urls[:max_pages]
+
     posters_created = 0
     duplicates_skipped = 0
     pages_succeeded = 0
@@ -228,9 +247,13 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
 
     for url in detail_urls:
         try:
-            detail_html = _fetch(url)
+            rate_limit(data_source_id, interval)
+            detail_html = _fetch(url, allowed_domains)
             raw_text = _parse_content(detail_html, ds.content_selector)
             raw_text = _clean_text(raw_text)
+            # Security: sanitise and mask sensitive data
+            raw_text = sanitise_crawled_text(raw_text)
+            raw_text = mask_sensitive(raw_text)
 
             if not raw_text:
                 pages_failed += 1
@@ -254,6 +277,13 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
             if is_dup:
                 duplicates_skipped += 1
             pages_succeeded += 1
+        except SecurityError as e:
+            pages_failed += 1
+            # Auto-disable data source after 3 consecutive security failures
+            _security_failures[data_source_id] += 1
+            if _security_failures[data_source_id] >= 3:
+                ds.enabled = False
+                ds.last_error_message = f"Auto-disabled after {_security_failures[data_source_id]} consecutive security violations"
         except requests.RequestException:
             pages_failed += 1
         except Exception:
@@ -275,13 +305,14 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         average_quality_score=avg_quality,
     )
 
-    # Update data source timestamps
-    from datetime import datetime
     if pages_succeeded > 0:
         ds.last_success_at = datetime.utcnow()
     if pages_failed > 0:
         ds.last_failure_at = datetime.utcnow()
     db.session.commit()
+
+    reset_rate_limit(data_source_id)
+    _security_failures.pop(data_source_id, None)
 
     return {
         "success": True,
@@ -291,4 +322,119 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         "pages_found": len(detail_urls),
         "pages_succeeded": pages_succeeded,
         "pages_failed": pages_failed,
+    }
+
+
+# ---------------------------------------------------------------------------
+# MCP-based crawling (e.g. Xiaohongshu)
+# ---------------------------------------------------------------------------
+
+
+def crawl_mcp_source(data_source_id: int, user_id: int) -> dict:
+    """Crawl a data source configured with ``crawl_mode=mcp``.
+
+    Uses the MCP client instead of HTTP requests.  The ``base_url`` field
+    of the data source is used as the MCP server name (e.g. ``xiaohongshu``).
+    """
+    ds = get_data_source(data_source_id)
+    if ds is None:
+        return {"success": False, "error": "Data source not found"}
+    if not ds.enabled:
+        return {"success": False, "error": "Data source is disabled"}
+    if ds.crawl_mode != "mcp":
+        return {"success": False, "error": f"Expected crawl_mode=mcp, got {ds.crawl_mode}"}
+
+    from .mcp_service import call_tool
+
+    is_official = ds.source_level == "official"
+    log = create_crawl_log(data_source_id)
+
+    try:
+        # The data source name serves as the MCP server name
+        server_name = ds.name.strip().lower().replace(" ", "_")
+        # Use base_url as the search query or fall back to data source notes
+        query = ds.notes or "校园活动"
+        result = call_tool(server_name, "search_notes", {"query": query})
+        if result is None:
+            raise RuntimeError(f"MCP call to '{server_name}' returned no result")
+    except Exception as e:
+        finish_crawl_log(log, "failed", message=f"MCP crawl error: {e}")
+        return {"success": False, "error": str(e)}
+
+    # Normalise results — different MCP servers return different shapes
+    raw_items = []
+    if isinstance(result, list):
+        raw_items = result
+    elif isinstance(result, dict):
+        raw_items = result.get("notes", result.get("results", result.get("items", [result])))
+
+    if not raw_items:
+        finish_crawl_log(log, "completed", message="No items found", pages_found=0)
+        return {"success": True, "posters_created": 0}
+
+    posters_created = 0
+    duplicates_skipped = 0
+    pages_succeeded = 0
+    pages_failed = 0
+    quality_scores = []
+
+    for item in raw_items[:50]:
+        try:
+            title = (item.get("title") or item.get("name") or "未命名活动")[:_MAX_TITLE_LENGTH]
+            raw_text = item.get("content") or item.get("description") or item.get("text") or ""
+            url = item.get("url") or item.get("link") or ""
+            event_time_str = item.get("time") or item.get("date") or item.get("event_time")
+
+            # Use AI to extract structured fields if available
+            from .ai_service import extract_from_text
+
+            ai_fields = extract_from_text(raw_text) if raw_text else {}
+
+            poster, is_dup = _create_draft_poster(
+                title,
+                raw_text[:10000],
+                url or f"mcp://{server_name}/{item.get('id', '')}",
+                user_id,
+                event_time=ai_fields.get("event_time") or _parse_datetime(event_time_str) if event_time_str else None,
+                location=ai_fields.get("location") or item.get("location"),
+                organizer=ai_fields.get("organizer") or item.get("author") or item.get("organizer"),
+                is_official=is_official,
+            )
+            if poster:
+                posters_created += 1
+                quality_scores.append(poster.quality_score or 0)
+            if is_dup:
+                duplicates_skipped += 1
+            pages_succeeded += 1
+        except Exception:
+            pages_failed += 1
+
+    db.session.commit()
+
+    avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
+    status = "failed" if pages_succeeded == 0 else "completed"
+    finish_crawl_log(
+        log,
+        status,
+        pages_found=len(raw_items),
+        pages_succeeded=pages_succeeded,
+        pages_failed=len(raw_items) - pages_succeeded,
+        duplicates_skipped=duplicates_skipped,
+        drafts_created=posters_created,
+        average_quality_score=avg_quality,
+    )
+
+    if pages_succeeded > 0:
+        ds.last_success_at = datetime.utcnow()
+    if pages_succeeded == 0:
+        ds.last_failure_at = datetime.utcnow()
+    db.session.commit()
+
+    return {
+        "success": True,
+        "posters_created": posters_created,
+        "duplicates_skipped": duplicates_skipped,
+        "average_quality_score": avg_quality,
+        "pages_found": len(raw_items),
+        "pages_succeeded": pages_succeeded,
     }

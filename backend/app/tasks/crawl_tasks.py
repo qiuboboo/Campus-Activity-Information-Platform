@@ -1,3 +1,5 @@
+from flask import current_app
+
 from ..celery_app import celery
 from ..config import Config
 from ..services.crawler_service import crawl_data_source as _sync_crawl

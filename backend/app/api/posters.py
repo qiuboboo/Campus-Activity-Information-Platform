@@ -341,3 +341,17 @@ def rebuild_poster_knowledge_endpoint(poster_id: int):
         "nodes_created": len(result["nodes"]),
         "links_created": len(result["links"]),
     })
+
+
+@posters_bp.route("/<int:poster_id>/ai-enrich", methods=["POST"])
+@roles_required("admin")
+def ai_enrich(poster_id: int):
+    """Trigger AI enrichment (summary, tags, keywords) for a poster."""
+    from ..services.ai_service import enrich_poster
+
+    result = enrich_poster(poster_id)
+    if not result:
+        return jsonify({"error": "Enrichment failed (LLM unavailable or poster not found)"}), 400
+
+    poster = db.session.get(Poster, poster_id)
+    return jsonify({"item": poster.to_dict() if poster else None, "ai_result": result})
