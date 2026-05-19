@@ -65,6 +65,20 @@ def _node_specs_for_poster(poster: Poster) -> list[dict]:
     topic = _topic_from_poster(poster)
     source = _normalize(poster.source_url)
 
+    # Normalize location and organizer through the controlled vocabulary
+    if location:
+        try:
+            from .dict_manager import normalize
+            location = normalize(location, category="place")
+        except Exception:
+            pass
+    if organizer:
+        try:
+            from .dict_manager import normalize
+            organizer = normalize(organizer, category="org")
+        except Exception:
+            pass
+
     if event_date:
         specs.append(
             {

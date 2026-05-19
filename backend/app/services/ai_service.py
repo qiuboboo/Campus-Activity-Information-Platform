@@ -40,24 +40,54 @@ def _get_config(key: str, default: Any = None) -> Any:
         return os.getenv(key, default)
 
 
+def _resolve_profile(profile: str | None) -> dict:
+    """Resolve API credentials from *profile* name, falling back to default config."""
+    if profile:
+        try:
+            from .model_manager import get_profile
+
+            cfg = get_profile(profile)
+            if cfg is not None:
+                return {
+                    "key": cfg["key"],
+                    "base_url": cfg.get("base_url", "https://api.deepseek.com").rstrip("/"),
+                    "model": cfg.get("model", "deepseek-chat"),
+                }
+            logger.warning("Profile '%s' not found, falling back to default", profile)
+        except Exception:
+            logger.exception("Error resolving profile '%s', falling back to default", profile)
+
+    return {
+        "key": _get_config("LLM_API_KEY", ""),
+        "base_url": _get_config("LLM_API_BASE_URL", "https://api.deepseek.com").rstrip("/"),
+        "model": _get_config("LLM_MODEL", "deepseek-chat"),
+    }
+
+
 def _llm_chat(
     messages: list[dict],
     *,
     response_format: type | None = None,
     timeout: int = _DEFAULT_TIMEOUT,
+    profile: str | None = None,
 ) -> dict | None:
     """Call the configured LLM API with *messages*.
+
+    When *profile* is given, resolves API credentials from the named
+    model profile (``model_manager.get_profile``).  Falls back to the
+    default ``LLM_API_KEY / LLM_API_BASE_URL / LLM_MODEL`` config.
 
     Returns the parsed JSON response body on success, or ``None`` if the call
     fails after retries.  Logs errors but never raises.
     """
-    api_key = _get_config("LLM_API_KEY", "")
+    resolved = _resolve_profile(profile)
+    api_key = resolved["key"]
     if not api_key:
         logger.warning("LLM_API_KEY is not set — skipping LLM call")
         return None
 
-    base_url = _get_config("LLM_API_BASE_URL", "https://api.deepseek.com").rstrip("/")
-    model = _get_config("LLM_MODEL", "deepseek-chat")
+    base_url = resolved["base_url"]
+    model = resolved["model"]
 
     body: dict[str, Any] = {
         "model": model,
@@ -114,10 +144,13 @@ _EXTRACT_SYSTEM_PROMPT = """你是一个校园活动信息提取助手。从用�
 只返回 JSON，不要包含其他文字。"""
 
 
-def extract_from_text(raw_text: str) -> dict:
+def extract_from_text(raw_text: str, profile: str | None = None) -> dict:
     """Extract structured activity fields from *raw_text* using LLM.
 
-    Falls back to an empty dict when the LLM is unavailable.
+    Optionally specify a *profile* name (e.g. ``"copilot"``) to use a
+    non-default LLM configuration.
+
+    Falls back to rule-based extraction when the LLM is unavailable.
     """
     if not raw_text or not raw_text.strip():
         return {}
@@ -128,11 +161,16 @@ def extract_from_text(raw_text: str) -> dict:
             {"role": "user", "content": raw_text[:4000]},  # truncate to avoid token limits
         ],
         response_format=dict,
+        profile=profile,
     )
 
     if result is None:
-        logger.info("LLM extraction skipped — returning empty result")
-        return {}
+        logger.info("LLM extraction failed — falling back to rule-based extractor")
+        from .fallback_extractor import fallback_extract
+
+        result = fallback_extract(raw_text)
+        result["_fallback"] = True
+        return result
 
     # Normalise event_time to datetime if present
     if isinstance(result.get("event_time"), str):

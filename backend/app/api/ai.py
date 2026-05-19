@@ -54,8 +54,10 @@ def extract():
     if not raw_text:
         return jsonify({"error": "text is required"}), 400
 
+    model = (data.get("model") or "").strip() or None
+
     from ..services.ai_service import extract_from_text
-    result = extract_from_text(raw_text)
+    result = extract_from_text(raw_text, profile=model)
 
     if not result:
         return jsonify({"error": "Extraction failed (LLM unavailable)", "fields": {}}), 503

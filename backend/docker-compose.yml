@@ -31,7 +31,7 @@ services:
     depends_on:
       - postgres
       - redis
-    command: celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1
+    command: celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1 -Q crawl,ai,index,celery
 
   beat:
     build: .

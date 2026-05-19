@@ -1,4 +1,39 @@
 from datetime import datetime
+from html import escape
+
+
+def generate_poster_html(
+    title: str,
+    summary: str,
+    event_time: datetime | None = None,
+    location: str | None = None,
+    organizer: str | None = None,
+    activity_type: str | None = None,
+) -> str:
+    """Generate a clean HTML poster card for an activity.
+
+    Returns a self-contained HTML fragment suitable for embedding in
+    a page or returning via the API.
+    """
+    time_str = event_time.strftime("%Y-%m-%d %H:%M") if event_time else ""
+
+    lines = [f'<div class="activity-poster">']
+    lines.append(f'  <h2 class="poster-title">{escape(title)}</h2>')
+
+    if time_str:
+        lines.append(f'  <p class="poster-time"><strong>时间：</strong>{escape(time_str)}</p>')
+    if location:
+        lines.append(f'  <p class="poster-location"><strong>地点：</strong>{escape(location)}</p>')
+    if organizer:
+        lines.append(f'  <p class="poster-organizer"><strong>主办方：</strong>{escape(organizer)}</p>')
+    if activity_type:
+        lines.append(f'  <p class="poster-type"><strong>类型：</strong>{escape(activity_type)}</p>')
+
+    if summary:
+        lines.append(f'  <p class="poster-summary">{escape(summary)}</p>')
+
+    lines.append("</div>")
+    return "\n".join(lines)
 
 
 def _parse_datetime(value):

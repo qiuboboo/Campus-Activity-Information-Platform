@@ -4,6 +4,7 @@ from .api.ai import ai_bp
 from .api.audit_logs import audit_logs_bp
 from .api.auth import auth_bp
 from .api.data_sources import data_sources_bp
+from .api.dicts import dicts_bp
 from .api.export import export_bp
 from .api.health import health_bp
 from .api.knowledge import knowledge_bp
@@ -39,6 +40,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
     app.register_blueprint(search_bp, url_prefix="/api/search")
     app.register_blueprint(data_sources_bp, url_prefix="/api")
+    app.register_blueprint(dicts_bp, url_prefix="/api")
     app.register_blueprint(tasks_bp, url_prefix="/api")
     app.register_blueprint(audit_logs_bp, url_prefix="/api/audit-logs")
     app.register_blueprint(export_bp, url_prefix="/api")

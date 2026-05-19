@@ -6,7 +6,7 @@ from ..extensions import db
 from ..models import Poster, PosterNode, PosterLink
 from ..services.audit_service import create_audit_log
 from ..services.knowledge_service import rebuild_poster_knowledge, related_payload
-from ..services.poster_service import build_poster_fields
+from ..services.poster_service import build_poster_fields, generate_poster_html
 from ..utils.auth import roles_required
 
 
@@ -58,6 +58,14 @@ def create_poster():
 
     parsed = build_poster_fields(payload)
     poster = Poster(created_by=int(get_jwt_identity()), **parsed)
+    poster.content_html = generate_poster_html(
+        title=poster.title,
+        summary=poster.summary,
+        event_time=poster.event_time,
+        location=poster.location,
+        organizer=poster.organizer,
+        activity_type=poster.activity_type,
+    )
     db.session.add(poster)
     db.session.flush()
     if poster.status == "published":
@@ -92,6 +100,17 @@ def update_poster(poster_id: int):
     parsed = build_poster_fields(payload, fallback=poster)
     for key, value in parsed.items():
         setattr(poster, key, value)
+
+    # Regenerate HTML when relevant content changes
+    if any(k in payload for k in ("title", "summary", "event_time", "location", "organizer")):
+        poster.content_html = generate_poster_html(
+            title=poster.title,
+            summary=poster.summary,
+            event_time=poster.event_time,
+            location=poster.location,
+            organizer=poster.organizer,
+            activity_type=poster.activity_type,
+        )
 
     if poster.status == "published":
         rebuild_poster_knowledge(poster)
@@ -354,4 +373,14 @@ def ai_enrich(poster_id: int):
         return jsonify({"error": "Enrichment failed (LLM unavailable or poster not found)"}), 400
 
     poster = db.session.get(Poster, poster_id)
+    if poster:
+        poster.content_html = generate_poster_html(
+            title=poster.title,
+            summary=poster.summary,
+            event_time=poster.event_time,
+            location=poster.location,
+            organizer=poster.organizer,
+            activity_type=poster.activity_type,
+        )
+        db.session.commit()
     return jsonify({"item": poster.to_dict() if poster else None, "ai_result": result})

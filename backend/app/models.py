@@ -64,6 +64,7 @@ class Poster(TimestampMixin, db.Model):
     quality_notes = db.Column(db.Text, nullable=True)
     tags = db.Column(db.Text, nullable=True)
     activity_type = db.Column(db.String(50), nullable=True)
+    content_html = db.Column(db.Text, nullable=True)
     last_crawled_at = db.Column(db.DateTime, nullable=True)
 
     creator = db.relationship("User", back_populates="posters")
@@ -110,6 +111,7 @@ class Poster(TimestampMixin, db.Model):
             "quality_notes": self.quality_notes,
             "tags": self.tags,
             "activity_type": self.activity_type,
+            "content_html": self.content_html,
             "last_crawled_at": self.last_crawled_at.isoformat() if self.last_crawled_at else None,
         }
 
@@ -332,4 +334,40 @@ class AuditLog(db.Model):
             "summary": self.summary,
             "metadata_json": self.metadata_json,
             "created_at": self.created_at.isoformat(),
+        }
+
+
+class DictEntry(TimestampMixin, db.Model):
+    """Controlled vocabulary entry for location/organizer/topic normalization.
+
+    Maps user-facing aliases to canonical ``standard_name`` values so that
+    knowledge nodes and relationships are consistent.
+    """
+
+    __tablename__ = "dict_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(30), nullable=False, index=True)
+    standard_name = db.Column(db.String(200), nullable=False)
+    aliases = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("category", "standard_name", name="uq_dict_category_name"),
+    )
+
+    def alias_list(self) -> list[str]:
+        if not self.aliases:
+            return []
+        return [a.strip() for a in self.aliases.split(",") if a.strip()]
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "category": self.category,
+            "standard_name": self.standard_name,
+            "aliases": self.aliases,
+            "description": self.description,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
         }

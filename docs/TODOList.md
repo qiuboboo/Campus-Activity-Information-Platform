@@ -1,6 +1,6 @@
-# TODO List: AI & MCP 集成阶段
+# TODO List: 后端增强
 
-> **阶段目标**：为后端接入 LLM API 和 MCP 协议，替代 OpenClaw 方案。
+> **阶段目标**：补齐文档中已规划但未实现的功能，增强后端健壮性。
 > **更新日期**：2026-05-19
 
 ## 使用规范
@@ -11,92 +11,73 @@
 
 ---
 
-## 配置与环境
+## Model Manager（模型管理模块）
 
-- [x] 更新 `.env.example`，添加 `LLM_API_KEY`、`LLM_API_BASE_URL`、`LLM_MODEL` 变量
-- [x] 更新 `config.py`，读取新的环境变量配置
-- [x] 安装依赖：`pip install mcp`（Python MCP SDK）
+文档依据：config.py 已有 `list_llm_profiles()`，ai_service.py 的 `_llm_chat()` 只读 default profile，没有按 name 分发的能力。
 
-## 爬虫安全改造
+- [ ] 创建 `services/model_manager.py`
+  - 封装 `list_llm_profiles()` 的读取逻辑
+  - 实现 `get_llm_client(profile_name="default")` 返回对应模型的 key/base_url/model
+  - 实现多模型切换：API 层传入 `model` 参数选择 profile
+- [ ] 改造 `ai_service.py` 的 `_llm_chat()` 支持 `profile` 参数
+  - 不传则走默认模型
+  - 传入 profile name 则走对应模型配置
+- [ ] 更新 API 层：`POST /ai/extract` 支持 `model` 可选字段
 
-- [x] 实现 `validate_target_url()` — URL 白名单、内网地址拦截、协议校验
-- [x] 实现 `sanitize_crawled_text()` — XSS 防护、控制字符剥离、敏感信息掩码
-- [x] 实现请求限速 — 支持 `request_interval` 配置
-- [x] 实现重定向安全校验 — 跨域重定向拦截
-- [x] 更新 `data_sources` 模型 — 增加 `allowed_domains`、`request_interval` 字段
-- [x] 更新 `data_source_service.py` — 新字段的 CRUD 支持
-- [x] 集中安全配置到 `config.py` — 所有爬虫安全参数可配置
-- [x] 爬虫安全事件日志与自动禁用机制
+## 非 AI 兜底提取（Fallback Extractor）
 
-## AI Service（ai_service.py）
+文档依据：5.7节明确要求"所有 AI 功能都有对应的非 AI 兜底实现"，当前 `extract_from_text()` 在 LLM 不可用时只返回空 dict。
 
-- [x] 实现 `extract_from_text(raw_text: str) -> dict` — 调用 LLM 从原始文本提取结构化活动信息
-- [x] 实现 `enrich_poster(poster_id: int) -> dict` — 对海报做摘要生成、分类标签
-- [x] 实现 `search_external(query: str) -> list[dict]` — LLM 驱动的外部搜索
-- [x] 实现 LLM 调用的统一客户端（超时、重试、日志）
-- [x] 实现非 AI 兜底降级逻辑
+- [ ] 创建 `services/fallback_extractor.py`
+  - 正则提取标题（取第一段非空行，限 80 字）
+  - 正则提取时间（匹配 `\d{4}年\d{1,2}月\d{1,2}日`、`\d{1,2}月\d{1,2}日`、ISO 格式等）
+  - 正则提取地点（匹配"在...举行/举办/召开"等句式 + 地点字典匹配）
+  - 正则提取主办方（匹配"由...主办/承办/组织"等句式）
+  - 简单摘要（取 raw_text 前 120 字）
+- [ ] 改造 `extract_from_text()`：LLM 失败时自动降级到 fallback extractor
+- [ ] 正确返回结构化字段（即使不如 LLM 准确，也要有值）
 
-## MCP Client（mcp_service.py）
+## 字典标准化模块
 
-- [x] 实现 `call_mcp(server_name: str, tool: str, params: dict) -> dict` — 通用 MCP 调用接口
-- [x] 实现 `search_xiaohongshu(query: str, **kwargs) -> list[dict]` — 小红书搜索封装
-- [x] 实现 MCP 服务发现与生命周期管理（启动/关闭 MCP 服务器进程）
-- [x] 实现 MCP 调用的错误处理与日志
+文档依据：5.3节要求维护"小型受控词表和别名表，用于统一名称"，当前 `_topic_from_poster()` 的关键词硬编码在函数里。
 
-## AI 统一接口（api/ai.py）
+- [ ] 创建 `services/dict_manager.py`
+  - 地点字典 API：标准名称 ↔ 别名映射
+  - 组织字典 API：部门/学院标准名称 ↔ 别名
+  - 主题标签表 API：同义词映射（如"大活礼堂"→"大学生活动中心大礼堂"）
+- [ ] 接入知识节点生成：`_node_specs_for_poster()` 中的 location/organizer 走字典标准化
+- [ ] 利用 KnowledgeNode 模型的 `alias` 字段（当前存在但从未被 populate）
+- [ ] 提供管理 API：`GET/POST /api/dict/places`、`GET/POST /api/dict/orgs`
 
-- [x] 创建 `GET /api/ai/status` — 查看 AI 服务状态
-- [x] 创建 `POST /api/ai/extract` — AI 活动信息提取
-- [x] 创建 `POST /api/ai/enrich/{id}` — AI 海报增强
-- [x] 创建 `POST /api/ai/search` — AI 外部搜索
-- [x] 创建 `GET /api/ai/mcp/servers` — 查看 MCP 服务器
-- [x] 创建 `POST /api/ai/mcp/call` — 调用 MCP 工具
+## 海报 HTML 生成
 
-## 集成与验证
+文档依据：5.2节"生成简约 HTML 海报"，Poster 模型文档中有 `content_html` 字段但实际 model 中没有该字段。
 
-- [x] DeepSeek API 配置并验证提取功能
-- [x] 冒烟测试 12/12 通过
-- [x] 安全模块 9/9 测试通过
+- [ ] Poster 模型添加 `content_html` 字段
+- [ ] 实现 HTML 海报生成函数（基于标题/时间/地点/主办方等字段，生成简约 HTML）
+- [ ] 创建海报时自动生成 content_html
+- [ ] 迁移：补全已有海报的 content_html
+
+## Celery 异步任务补齐
+
+文档依据：9.1节要求三个队列（crawl / ai / index），当前只有 crawl 任务。
+
+- [ ] 创建 `tasks/ai_tasks.py` — AI 异步任务（ai 队列）
+  - `ai_extract_task(text)` — 异步调用 LLM 提取
+  - `ai_enrich_task(poster_id)` — 异步调用 LLM 增强
+- [ ] 创建 `tasks/index_tasks.py` — 向量索引任务（index 队列）
+  - `build_poster_embedding(poster_id)` — 生成海报向量
+  - `build_node_embedding(node_id)` — 生成知识节点向量
+- [ ] 更新 `celery_app.py` 配置三个队列路由
+
+## 搜索接口对齐
+
+文档依据：7.4节要求 `GET /api/search/internal`（语义向量 + 全文检索）和 `GET /api/search/external`，当前内部搜索只有 LIKE，外部搜索在 `POST /ai/search` 路径不一致。
+
+- [ ] 内部搜索增强：在全文 LIKE 基础上增加可选的向量语义检索（EMBEDDING_ENABLED 时启用）
+- [ ] 外部搜索统一：`GET /api/search/external` 路由指向 AI 搜索（或保持现状，更新文档）
 
 ---
-
-## 当前文件结构
-
-```
-backend/app/
-├── __init__.py           # 应用工厂
-├── config.py             # 多模型 LLM 配置
-├── extensions.py         # db, jwt, cors
-├── models.py             # 含 allowed_domains, tags 等新字段
-├── celery_app.py         # Celery 配置
-├── api/
-│   ├── ai.py             # 统一 AI 接口（新增）
-│   ├── auth.py           # 登录鉴权
-│   ├── posters.py        # 海报 CRUD
-│   ├── data_sources.py   # 数据源管理（含 crawl_mode=mcp）
-│   ├── health.py         # 健康检查
-│   ├── knowledge.py      # 知识图谱
-│   ├── search.py         # 内部搜索
-│   ├── tasks.py          # 异步任务状态
-│   ├── audit_logs.py     # 审计日志
-│   └── export.py         # 导出
-├── services/
-│   ├── ai_service.py     # AI 业务逻辑：提取/增强/搜索（新增）
-│   ├── mcp_service.py    # MCP 客户端（新增）
-│   ├── security_service.py # 爬虫安全（新增）
-│   ├── crawler_service.py  # 爬虫（安全加固 + MCP 模式）
-│   ├── data_source_service.py # 数据源（支持新字段）
-│   ├── poster_service.py
-│   ├── knowledge_service.py
-│   ├── quality_service.py
-│   ├── dedup_service.py
-│   ├── audit_service.py
-│   └── bootstrap.py
-├── tasks/
-│   └── crawl_tasks.py
-└── utils/
-    └── auth.py
-```
 
 ## 当前状态
 
