@@ -118,6 +118,26 @@ def update_poster(poster_id: int):
     return jsonify({"item": poster.to_dict()})
 
 
+@posters_bp.post("/<int:poster_id>/submit")
+@roles_required("publisher", "admin")
+def submit_poster(poster_id: int):
+    """Submit a draft poster for review (draft → pending_review)."""
+    poster = Poster.query.get_or_404(poster_id)
+    if poster.status != "draft":
+        return jsonify({"message": f"cannot submit poster with status '{poster.status}'"}), 400
+
+    poster.status = "pending_review"
+    create_audit_log(
+        actor_id=int(get_jwt_identity()),
+        action="submit",
+        target_type="poster",
+        target_id=poster.id,
+        summary=f"Submitted poster '{poster.title}' for review",
+    )
+    db.session.commit()
+    return jsonify({"item": poster.to_dict()})
+
+
 @posters_bp.post("/<int:poster_id>/review")
 @roles_required("admin")
 def review_poster(poster_id: int):
@@ -128,6 +148,8 @@ def review_poster(poster_id: int):
 
     if action not in {"approve", "reject"}:
         return jsonify({"message": "action must be approve or reject"}), 400
+    if poster.status not in {"pending_review", "draft"}:
+        return jsonify({"message": f"cannot review poster with status '{poster.status}'"}), 400
 
     old_status = poster.status
     poster.status = "published" if action == "approve" else "rejected"
@@ -166,7 +188,7 @@ def review_queue():
     if status_filter:
         query = query.filter_by(status=status_filter)
     else:
-        query = query.filter(Poster.status.in_(["draft", "published", "rejected"]))
+        query = query.filter(Poster.status.in_(["pending_review", "draft", "rejected"]))
 
     if source_type:
         query = query.filter_by(source_type=source_type)

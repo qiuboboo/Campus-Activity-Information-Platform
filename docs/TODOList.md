@@ -40,34 +40,34 @@
 文档依据：5.2 节第 4-5 步 "用户确认后提交审核 → 管理员审核"
 
 当前状态：
-- [ ] 代码中只有 `draft` → (admin review) → `published`/`rejected`，缺少用户侧"提交审核"动作
-- [ ] 是否补充 `pending_review` 状态和对应接口需确认
+- [x] 代码中只有 `draft` → (admin review) → `published`/`rejected` → 已补充 `pending_review` 状态和 `POST /api/posters/{id}/submit` 接口
+- [x] 是否补充 `pending_review` 状态和对应接口需确认 → 已添加，同时限制 review 只对 draft/pending_review 可操作
 
 ## 三、技术文档更新（代码已有，文档未同步）
 
 ### 6.2 节 — 数据库表结构
-- [ ] `posters` 表：字段名 `content_raw` → `raw_text`（文档用名与代码不符）
-- [ ] `posters` 表：补充 `duplicate_group_key`、`source_fingerprint`、`quality_score`、`quality_notes`、`tags`、`activity_type`、`last_crawled_at`
-- [ ] `knowledge_nodes` 表：补充 `updated_at`
-- [ ] `poster_links` 表：补充 `updated_at`
-- [ ] `crawl_logs` 表：补充 `pages_found`、`pages_succeeded`、`pages_failed`、`duplicates_skipped`、`drafts_created`、`average_quality_score`
-- [ ] `dict_entries` 表：`aliases` 字段格式说明（逗号分隔，非 JSON）
-- [ ] 新增 `audit_logs` 表（已有模型但文档未收录）
+- [x] `posters` 表：字段名 `content_raw` → `raw_text`（文档用名与代码不符）
+- [x] `posters` 表：补充 `duplicate_group_key`、`source_fingerprint`、`quality_score`、`quality_notes`、`tags`、`activity_type`、`last_crawled_at`
+- [x] `knowledge_nodes` 表：补充 `updated_at`
+- [x] `poster_links` 表：补充 `updated_at`
+- [x] `crawl_logs` 表：补充 `pages_found`、`pages_succeeded`、`pages_failed`、`duplicates_skipped`、`drafts_created`、`average_quality_score`
+- [x] `dict_entries` 表：`aliases` 字段格式说明（逗号分隔，非 JSON）
+- [x] 新增 `audit_logs` 表（已有模型但文档未收录）
 
 ### 7.x 节 — 接口设计
-- [ ] 7.1 节：补充 `GET /api/auth/me`（当前用户信息）
-- [ ] 7.2 节：补充 review-queue、bulk-review、duplicates、merge-source、rebuild-knowledge、ai-enrich 接口
-- [ ] 7.5 节：补充 `GET /api/data-sources/{id}`、`PUT /api/data-sources/{id}`、`GET /api/data-sources/{id}/logs`
-- [ ] 7.6 新增：知识节点接口 `GET /api/knowledge/nodes`、`GET /api/knowledge/nodes/{id}`、`POST /api/knowledge/rebuild`
-- [ ] 7.7 新增：AI 接口 `/api/ai/*`（status、extract、enrich、search、mcp）
-- [ ] 7.8 新增：Dict 受控词表接口 `/api/dict/*`
-- [ ] 7.9 新增：导出与演示接口 `/api/export/*`、`/api/demo/summary`
-- [ ] 7.10 新增：系统接口 `/api/health`、`/api/tasks/{id}`、`/api/audit-logs`
+- [x] 7.1 节：补充 `GET /api/auth/me`（当前用户信息）
+- [x] 7.2 节：补充 review-queue、bulk-review、duplicates、merge-source、rebuild-knowledge、ai-enrich 接口
+- [x] 7.5 节：补充 `GET /api/data-sources/{id}`、`PUT /api/data-sources/{id}`、`GET /api/data-sources/{id}/logs`
+- [x] 7.6 新增：知识节点接口 `GET /api/knowledge/nodes`、`GET /api/knowledge/nodes/{id}`、`POST /api/knowledge/rebuild`
+- [x] 7.7 新增：AI 接口 `/api/ai/*`（status、extract、enrich、search、mcp）
+- [x] 7.8 新增：Dict 受控词表接口 `/api/dict/*`
+- [x] 7.9 新增：导出与演示接口 `/api/export/*`、`/api/demo/summary`
+- [x] 7.10 新增：系统接口 `/api/health`、`/api/tasks/{id}`、`/api/audit-logs`
 
 ### 5.x 节 — 模块说明
-- [ ] 补充质量评分系统说明（`quality_service.py`）
-- [ ] 补充去重系统说明（`dedup_service.py`）
-- [ ] 补充审计日志系统说明（`audit_service.py`）
+- [x] 补充质量评分系统说明（`quality_service.py`）
+- [x] 补充去重系统说明（`dedup_service.py`）
+- [x] 补充审计日志系统说明（`audit_service.py`）
 
 ---
 
