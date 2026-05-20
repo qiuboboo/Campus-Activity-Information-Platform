@@ -10,6 +10,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - copilot-proxy
 
   postgres:
     image: postgres:16
@@ -51,6 +52,20 @@ services:
     volumes:
       - redis-data:/data
 
+  copilot-proxy:
+    image: node:20-slim
+    container_name: campus-activity-copilot-proxy
+    restart: unless-stopped
+    working_dir: /data
+    env_file:
+      - .env
+    command: sh -c "npx copilot-api-node20@latest start --openai --port 4141 --hostname 0.0.0.0"
+    ports:
+      - "127.0.0.1:4141:4141"
+    volumes:
+      - copilot-data:/data
+
 volumes:
   postgres-data:
   redis-data:
+  copilot-data:
