@@ -66,6 +66,7 @@ class Poster(TimestampMixin, db.Model):
     activity_type = db.Column(db.String(50), nullable=True)
     content_html = db.Column(db.Text, nullable=True)
     last_crawled_at = db.Column(db.DateTime, nullable=True)
+    embedding = db.Column(db.Text, nullable=True)
 
     creator = db.relationship("User", back_populates="posters")
     nodes = db.relationship(
@@ -113,6 +114,7 @@ class Poster(TimestampMixin, db.Model):
             "activity_type": self.activity_type,
             "content_html": self.content_html,
             "last_crawled_at": self.last_crawled_at.isoformat() if self.last_crawled_at else None,
+            "embedding": self.embedding,
         }
 
 
@@ -125,6 +127,7 @@ class KnowledgeNode(TimestampMixin, db.Model):
     node_type = db.Column(db.String(50), nullable=False)
     description = db.Column(db.Text, nullable=True)
     source_url = db.Column(db.Text, nullable=True)
+    embedding = db.Column(db.Text, nullable=True)
 
     posters = db.relationship(
         "PosterNode",
@@ -147,6 +150,7 @@ class KnowledgeNode(TimestampMixin, db.Model):
             "source_url": self.source_url,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "embedding": self.embedding,
         }
 
 

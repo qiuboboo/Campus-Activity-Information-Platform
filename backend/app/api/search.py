@@ -26,34 +26,59 @@ def internal_search():
     if not keyword:
         return jsonify({"items": [], "query": keyword})
 
-    like_value = f"%{keyword}%"
-
-    # Vector (semantic) search — only active when EMBEDDING_ENABLED=true and pgvector is set up
     _check_embedding()
-    if _EMBEDDING_ENABLED and hasattr(Poster, "embedding"):
-        try:
-            # Placeholder for vector search implementation.
-            # When active, this should compute a query embedding and do:
-            #   Poster.query.order_by(Poster.embedding.cosine_distance(query_embedding)).limit(20)
-            pass
-        except Exception:
-            pass  # fall through to LIKE
 
-    # Full-text (LIKE) search — always available
-    posters = (
-        Poster.query.filter(
-            or_(
-                Poster.title.like(like_value),
-                Poster.summary.like(like_value),
-                Poster.raw_text.like(like_value),
-                Poster.location.like(like_value),
-                Poster.organizer.like(like_value),
+    # Vector (semantic) search — only active when EMBEDDING_ENABLED=true
+    if _EMBEDDING_ENABLED:
+        from ..services.embeddings_service import get_embedding, search_posters_by_vector
+
+        query_emb = get_embedding(keyword)
+        if query_emb:
+            posters_with_emb = Poster.query.filter(Poster.embedding.isnot(None)).all()
+            scored = search_posters_by_vector(query_emb, posters_with_emb, limit=20, min_score=0.0)
+            poster_ids = {p.id for _, p in scored}
+
+            # Add any LIKE matches not found by vector search
+            like_value = f"%{keyword}%"
+            extra = (
+                Poster.query.filter(
+                    or_(
+                        Poster.title.like(like_value),
+                        Poster.summary.like(like_value),
+                        Poster.raw_text.like(like_value),
+                        Poster.location.like(like_value),
+                        Poster.organizer.like(like_value),
+                    )
+                )
+                .filter(~Poster.id.in_(poster_ids))
+                .order_by(Poster.created_at.desc())
+                .limit(20)
+                .all()
             )
+
+            posters = [p for _, p in scored] + extra
+        else:
+            posters = []
+    else:
+        # Full-text (LIKE) search — always available
+        like_value = f"%{keyword}%"
+        posters = (
+            Poster.query.filter(
+                or_(
+                    Poster.title.like(like_value),
+                    Poster.summary.like(like_value),
+                    Poster.raw_text.like(like_value),
+                    Poster.location.like(like_value),
+                    Poster.organizer.like(like_value),
+                )
+            )
+            .order_by(Poster.created_at.desc())
+            .limit(20)
+            .all()
         )
-        .order_by(Poster.created_at.desc())
-        .limit(20)
-        .all()
-    )
+
+    # Knowledge nodes — always use LIKE
+    like_value = f"%{keyword}%"
     nodes = (
         KnowledgeNode.query.filter(
             or_(

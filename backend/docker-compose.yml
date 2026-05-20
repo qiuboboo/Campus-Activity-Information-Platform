@@ -13,7 +13,7 @@ services:
       - copilot-proxy
 
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:0.7.4-pg16
     container_name: campus-activity-postgres
     restart: unless-stopped
     environment:

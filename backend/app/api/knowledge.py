@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy import or_
 
@@ -84,6 +84,15 @@ def rebuild_all_knowledge():
     if succeeded > 0:
         db.session.commit()
 
+    # Also rebuild embeddings when enabled
+    rebuild_embeddings = payload.get("rebuild_embeddings", False)
+    emb_result = None
+    if rebuild_embeddings and current_app.config.get("EMBEDDING_ENABLED"):
+        from ..tasks.index_tasks import rebuild_all_embeddings
+
+        emb_result = rebuild_all_embeddings.delay()
+        emb_result = {"task_id": emb_result.id}
+
     actor_id = int(get_jwt_identity())
     create_audit_log(
         actor_id=actor_id,
@@ -99,4 +108,5 @@ def rebuild_all_knowledge():
         "succeeded": succeeded,
         "failed": failed,
         "errors": errors[:10],
+        "embeddings": emb_result,
     })

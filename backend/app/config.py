@@ -22,6 +22,9 @@ class Config:
     DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123456")
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     EMBEDDING_ENABLED = _as_bool(os.getenv("EMBEDDING_ENABLED"), False)
+    EMBEDDING_API_URL = os.getenv("EMBEDDING_API_URL", "http://copilot-proxy:4141/v1/embeddings")
+    EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY", "copilot")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     JSON_AS_ASCII = False
 
     # --- Celery / Scheduled Crawl ---
