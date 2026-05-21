@@ -26,11 +26,13 @@ async function fetchData() {
 async function handleReview(id: number, action: 'approve' | 'reject') {
   try {
     if (action === 'reject') {
-      await ElMessageBox.prompt('请输入驳回原因', '驳回', {
+      const { value } = await ElMessageBox.prompt('请输入驳回原因', '驳回', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
+        inputValidator: (v: string) => !!v.trim(),
+        inputErrorMessage: '驳回原因不能为空',
       })
-      await reviewPoster(id, action, '')
+      await reviewPoster(id, action, value)
     } else {
       await reviewPoster(id, action)
     }

@@ -40,15 +40,20 @@ const router = createRouter({
           component: () => import('@/views/posters/PosterCreate.vue'),
         },
         {
+          path: 'review',
+          name: 'PosterReview',
+          component: () => import('@/views/posters/PosterReview.vue'),
+          meta: { role: 'admin' },
+        },
+        {
           path: ':id',
           name: 'PosterDetail',
           component: () => import('@/views/posters/PosterDetail.vue'),
         },
         {
-          path: 'review',
-          name: 'PosterReview',
-          component: () => import('@/views/posters/PosterReview.vue'),
-          meta: { role: 'admin' },
+          path: ':id/edit',
+          name: 'PosterEdit',
+          component: () => import('@/views/posters/PosterEdit.vue'),
         },
       ],
     },
@@ -77,6 +82,28 @@ const router = createRouter({
           path: '',
           name: 'DataSourceList',
           component: () => import('@/views/datasources/DataSourceList.vue'),
+        },
+        {
+          path: 'create',
+          name: 'DataSourceCreate',
+          component: () => import('@/views/datasources/DataSourceForm.vue'),
+        },
+        {
+          path: ':id/edit',
+          name: 'DataSourceEdit',
+          component: () => import('@/views/datasources/DataSourceForm.vue'),
+        },
+      ],
+    },
+    {
+      path: '/audit-logs',
+      component: () => import('@/components/AppLayout.vue'),
+      meta: { role: 'admin' },
+      children: [
+        {
+          path: '',
+          name: 'AuditLogs',
+          component: () => import('@/views/audit/AuditLogs.vue'),
         },
       ],
     },

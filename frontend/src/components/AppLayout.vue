@@ -21,6 +21,7 @@ const menuItems = computed<MenuItem[]>(() => [
   { path: '/search', label: '搜索', icon: 'Search' },
   { path: '/posters/review', label: '审核队列', icon: 'Finished', adminOnly: true },
   { path: '/datasources', label: '数据源管理', icon: 'Setting', adminOnly: true },
+  { path: '/audit-logs', label: '审计日志', icon: 'List', adminOnly: true },
 ])
 
 const visibleMenuItems = computed(() =>

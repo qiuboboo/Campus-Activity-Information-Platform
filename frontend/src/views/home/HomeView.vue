@@ -1,9 +1,76 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import client from '@/api/client'
+import { listPosters } from '@/api/posters'
+import { listKnowledgeNodes } from '@/api/knowledge'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+const hotPosters = ref<any[]>([])
+const recentPosters = ref<any[]>([])
+const categories = ref<any[]>([])
+const featuredPoster = ref<any>(null)
+const loading = ref(true)
+
+const typeColors: Record<string, string> = {
+  time: 'success',
+  place: 'primary',
+  organization: 'warning',
+  topic: 'danger',
+  source: 'info',
+}
+
+const nodeTypeLabels: Record<string, string> = {
+  time: '时间',
+  place: '地点',
+  organization: '组织',
+  topic: '主题',
+  source: '来源',
+}
+
+async function fetchData() {
+  loading.value = true
+  try {
+    const [hotRes, recentRes, catRes] = await Promise.all([
+      listPosters({ status: 'published', per_page: 3 }),
+      listPosters({ per_page: 6 }),
+      listKnowledgeNodes(),
+    ])
+    hotPosters.value = hotRes.data.items
+    recentPosters.value = recentRes.data.items
+    categories.value = catRes.data.items
+
+    // 取第一个 published 作为今日亮点
+    if (hotPosters.value.length > 0) {
+      featuredPoster.value = hotPosters.value[0]
+    } else if (recentPosters.value.length > 0) {
+      featuredPoster.value = recentPosters.value[0]
+    }
+  } catch {
+    // handled by interceptor
+  } finally {
+    loading.value = false
+  }
+}
+
+function formatTime(iso: string | null) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function goPosterDetail(id: number) {
+  router.push(`/posters/${id}`)
+}
+
+onMounted(fetchData)
 </script>
 
 <template>
@@ -44,38 +111,105 @@ const router = useRouter()
           </div>
         </div>
 
-        <!-- 卡片网格（预留 API 数据展示位） -->
-        <div class="bento-grid">
+        <!-- 卡片网格 -->
+        <div class="bento-grid" v-loading="loading">
           <div class="feature-row">
+            <!-- 热门推荐 -->
             <div class="bento-card">
               <h3>热门推荐</h3>
-              <!-- API: 热门活动列表 -->
+              <div v-if="hotPosters.length" class="card-list">
+                <div
+                  v-for="item in hotPosters"
+                  :key="item.id"
+                  class="card-list-item"
+                  @click="goPosterDetail(item.id)"
+                >
+                  <div class="item-title">{{ item.title }}</div>
+                  <div class="item-meta">{{ item.organizer }} · {{ formatTime(item.event_time) }}</div>
+                </div>
+              </div>
+              <div v-else class="card-empty">暂无数据</div>
             </div>
+
+            <!-- 快速筛选（分类标签） -->
             <div class="bento-card">
               <h3>快速筛选</h3>
-              <!-- API: 分类筛选入口 -->
+              <div v-if="categories.length" class="tag-cloud">
+                <el-tag
+                  v-for="cat in categories.slice(0, 12)"
+                  :key="cat.id"
+                  :type="(typeColors[cat.node_type] as any) || 'info'"
+                  effect="plain"
+                  size="large"
+                  style="cursor: pointer; margin: 4px;"
+                  @click="router.push(`/knowledge/${cat.id}`)"
+                >
+                  {{ cat.name }}
+                </el-tag>
+              </div>
+              <div v-else class="card-empty">暂无分类</div>
             </div>
+
+            <!-- 最新发布 -->
             <div class="bento-card">
               <h3>最新发布</h3>
-              <!-- API: 最新活动列表 -->
+              <div v-if="recentPosters.length" class="card-list">
+                <div
+                  v-for="item in recentPosters.slice(0, 4)"
+                  :key="item.id"
+                  class="card-list-item"
+                  @click="goPosterDetail(item.id)"
+                >
+                  <div class="item-title">{{ item.title }}</div>
+                  <div class="item-meta">{{ item.location || '待定' }} · {{ formatTime(item.created_at) }}</div>
+                </div>
+              </div>
+              <div v-else class="card-empty">暂无数据</div>
             </div>
           </div>
 
           <div class="main-row">
+            <!-- 今日亮点 -->
             <div class="bento-card highlight-card">
               <div class="card-header">
                 <h3>今日亮点</h3>
                 <span class="tag">推荐</span>
               </div>
-              <!-- API: 精选活动展示 -->
+              <div v-if="featuredPoster" @click="goPosterDetail(featuredPoster.id)" style="cursor: pointer;">
+                <div class="featured-title">{{ featuredPoster.title }}</div>
+                <div class="featured-summary">{{ featuredPoster.summary || featuredPoster.raw_text?.substring(0, 100) }}</div>
+                <div class="featured-meta">
+                  <span>📅 {{ formatTime(featuredPoster.event_time) }}</span>
+                  <span>📍 {{ featuredPoster.location || '待定' }}</span>
+                  <span>🏫 {{ featuredPoster.organizer || '未知' }}</span>
+                </div>
+              </div>
+              <div v-else class="card-empty">暂无推荐活动</div>
             </div>
 
+            <!-- 分类入口 -->
             <div class="bento-card category-card">
               <div class="card-header">
                 <h3>分类入口</h3>
                 <span class="tag">探索</span>
               </div>
-              <!-- API: 活动分类列表 -->
+              <div v-if="categories.length" class="category-grid">
+                <div
+                  v-for="cat in categories.slice(0, 6)"
+                  :key="cat.id"
+                  class="category-item"
+                  @click="router.push(`/knowledge/${cat.id}`)"
+                >
+                  <el-tag :type="(typeColors[cat.node_type] as any) || 'info'" size="large" effect="dark">
+                    {{ nodeTypeLabels[cat.node_type] || cat.node_type }}
+                  </el-tag>
+                  <span class="category-name">{{ cat.name }}</span>
+                </div>
+              </div>
+              <div v-else class="card-empty">暂无分类数据</div>
+              <div style="margin-top: 16px;">
+                <el-button text type="primary" @click="router.push('/knowledge')">查看全部知识节点 →</el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -355,5 +489,101 @@ const router = useRouter()
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+}
+
+/* ====== 卡片列表样式 ====== */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-list-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.card-list-item:hover {
+  background: #f0f9f4;
+}
+
+.item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a3d2c;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.card-empty {
+  padding: 20px 0;
+  text-align: center;
+  color: #c0c4cc;
+  font-size: 14px;
+}
+
+/* ====== 标签云 ====== */
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ====== 今日亮点 ====== */
+.featured-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a3d2c;
+  margin-bottom: 12px;
+}
+
+.featured-summary {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.featured-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: #909399;
+}
+
+/* ====== 分类网格 ====== */
+.category-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.category-item:hover {
+  background: #f0f9f4;
+}
+
+.category-name {
+  font-size: 14px;
+  color: #303133;
 }
 </style>

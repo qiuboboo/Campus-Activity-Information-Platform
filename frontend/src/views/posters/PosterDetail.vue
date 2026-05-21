@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPoster, getRelated, type Poster } from '@/api/posters'
+import { getPoster, getRelated, submitPoster, type Poster } from '@/api/posters'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +12,7 @@ const auth = useAuthStore()
 const poster = ref<Poster | null>(null)
 const related = ref<any>(null)
 const loading = ref(true)
+const submitting = ref(false)
 
 async function fetchData() {
   try {
@@ -25,6 +27,31 @@ async function fetchData() {
     router.push('/posters')
   } finally {
     loading.value = false
+  }
+}
+
+async function handleSubmit() {
+  if (!poster.value) return
+  try {
+    await ElMessageBox.confirm(
+      '提交后海报将进入审核队列，等待管理员审核。确定提交？',
+      '提交审核',
+      { confirmButtonText: '确定提交', cancelButtonText: '取消', type: 'info' },
+    )
+    submitting.value = true
+    await submitPoster(poster.value.id)
+    ElMessage.success('已提交审核')
+    fetchData()
+  } catch {
+    // cancelled or error
+  } finally {
+    submitting.value = false
+  }
+}
+
+function goEdit() {
+  if (poster.value) {
+    router.push(`/posters/${poster.value.id}/edit`)
   }
 }
 
@@ -51,7 +78,7 @@ onMounted(fetchData)
 
     <el-card v-if="poster" shadow="hover" style="border-radius: 8px;">
       <template #header>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div>
             <span style="font-size: 20px; font-weight: bold; color: #303133;">{{ poster.title }}</span>
             <el-tag
@@ -61,6 +88,26 @@ onMounted(fetchData)
             >
               {{ statusMap[poster.status]?.label || poster.status }}
             </el-tag>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <!-- 编辑（创建者或管理员） -->
+            <el-button
+              v-if="auth.isAdmin || auth.user?.id === poster.created_by"
+              size="small"
+              @click="goEdit"
+            >
+              <el-icon><Edit /></el-icon> 编辑
+            </el-button>
+            <!-- 提交审核（草稿/已拒绝状态下可提交） -->
+            <el-button
+              v-if="(poster.status === 'draft' || poster.status === 'rejected') && auth.isPublisher"
+              size="small"
+              type="warning"
+              :loading="submitting"
+              @click="handleSubmit"
+            >
+              <el-icon><Upload /></el-icon> 提交审核
+            </el-button>
           </div>
         </div>
       </template>

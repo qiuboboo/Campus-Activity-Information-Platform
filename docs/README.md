@@ -12,6 +12,7 @@
 - [Deployment Record](DeploymentRecord.md)
 - [Archived TODO Lists](todos/)
 - [API Examples](APIExamples.md)
+- [Frontend Local Testing Guide](前端本地测试指南.md)
 
 ## Diagrams
 
