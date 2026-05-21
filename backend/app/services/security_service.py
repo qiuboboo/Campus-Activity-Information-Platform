@@ -40,6 +40,7 @@ _BLOCKED_HOST_PREFIXES = (
 _SENSITIVE_PATTERNS: dict[str, re.Pattern] = {
     "phone": re.compile(r"1[3-9]\d{9}"),
     "id_card": re.compile(r"\d{17}[\dXx]"),
+    "email": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"),
 }
 
 

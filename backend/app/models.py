@@ -24,6 +24,15 @@ class User(TimestampMixin, db.Model):
     role = db.Column(db.String(20), default="viewer", nullable=False)
 
     posters = db.relationship("Poster", back_populates="creator", lazy=True)
+    subscriptions = db.relationship(
+        "Subscription", back_populates="user", lazy=True, cascade="all, delete-orphan"
+    )
+    notifications = db.relationship(
+        "Notification", back_populates="user", lazy=True, cascade="all, delete-orphan"
+    )
+    calendar_events = db.relationship(
+        "UserCalendarEvent", back_populates="user", lazy=True, cascade="all, delete-orphan"
+    )
     audit_logs = db.relationship(
         "AuditLog", back_populates="actor", foreign_keys="AuditLog.actor_id", lazy=True
     )
@@ -338,6 +347,99 @@ class AuditLog(db.Model):
             "summary": self.summary,
             "metadata_json": self.metadata_json,
             "created_at": self.created_at.isoformat(),
+        }
+
+
+class Subscription(TimestampMixin, db.Model):
+    """User subscription to a knowledge node or keyword.
+
+    When a new poster is published, subscriptions are matched and
+    notification records are created for the matching users.
+    """
+
+    __tablename__ = "subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    node_id = db.Column(db.Integer, db.ForeignKey("knowledge_nodes.id"), nullable=True)
+    keyword = db.Column(db.String(200), nullable=True)
+    notify_method = db.Column(db.String(20), default="platform", nullable=False)
+
+    user = db.relationship("User", back_populates="subscriptions")
+    node = db.relationship("KnowledgeNode")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "node_id IS NOT NULL OR keyword IS NOT NULL",
+            name="ck_subscription_target",
+        ),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "node_id": self.node_id,
+            "keyword": self.keyword,
+            "notify_method": self.notify_method,
+            "node": self.node.to_dict() if self.node else None,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class Notification(db.Model):
+    """In-platform notification for a user, triggered by subscription match."""
+
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    poster_id = db.Column(db.Integer, db.ForeignKey("posters.id"), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=True)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="notifications")
+    poster = db.relationship("Poster")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "poster_id": self.poster_id,
+            "title": self.title,
+            "body": self.body,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat(),
+            "poster": {"id": self.poster.id, "title": self.poster.title} if self.poster else None,
+        }
+
+
+class UserCalendarEvent(db.Model):
+    """Records a user adding a poster to their personal calendar."""
+
+    __tablename__ = "user_calendar_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    poster_id = db.Column(db.Integer, db.ForeignKey("posters.id"), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="calendar_events")
+    poster = db.relationship("Poster")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "poster_id", name="uq_user_calendar_event"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "poster_id": self.poster_id,
+            "added_at": self.added_at.isoformat(),
+            "poster": self.poster.to_dict() if self.poster else None,
         }
 
 
