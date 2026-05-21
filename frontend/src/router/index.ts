@@ -5,59 +5,87 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/',
+      name: 'Home',
+      component: () => import('@/views/home/HomeView.vue'),
+    },
+    {
       path: '/login',
       name: 'Login',
       component: () => import('@/views/login/LoginView.vue'),
     },
     {
-      path: '/',
+      path: '/dashboard',
       component: () => import('@/components/AppLayout.vue'),
-      redirect: '/dashboard',
       children: [
         {
-          path: 'dashboard',
+          path: '',
           name: 'Dashboard',
           component: () => import('@/views/dashboard/DashboardView.vue'),
         },
+      ],
+    },
+    {
+      path: '/posters',
+      component: () => import('@/components/AppLayout.vue'),
+      children: [
         {
-          path: 'posters',
+          path: '',
           name: 'PosterList',
           component: () => import('@/views/posters/PosterList.vue'),
         },
         {
-          path: 'posters/create',
+          path: 'create',
           name: 'PosterCreate',
           component: () => import('@/views/posters/PosterCreate.vue'),
         },
         {
-          path: 'posters/:id',
+          path: ':id',
           name: 'PosterDetail',
           component: () => import('@/views/posters/PosterDetail.vue'),
         },
         {
-          path: 'posters/review',
+          path: 'review',
           name: 'PosterReview',
           component: () => import('@/views/posters/PosterReview.vue'),
           meta: { role: 'admin' },
         },
+      ],
+    },
+    {
+      path: '/knowledge',
+      component: () => import('@/components/AppLayout.vue'),
+      children: [
         {
-          path: 'knowledge',
+          path: '',
           name: 'KnowledgeNodes',
           component: () => import('@/views/knowledge/KnowledgeNodes.vue'),
         },
         {
-          path: 'knowledge/:id',
+          path: ':id',
           name: 'KnowledgeNodeDetail',
           component: () => import('@/views/knowledge/KnowledgeNodeDetail.vue'),
         },
+      ],
+    },
+    {
+      path: '/datasources',
+      component: () => import('@/components/AppLayout.vue'),
+      meta: { role: 'admin' },
+      children: [
         {
-          path: 'datasources',
+          path: '',
           name: 'DataSourceList',
           component: () => import('@/views/datasources/DataSourceList.vue'),
-          meta: { role: 'admin' },
         },
+      ],
+    },
+    {
+      path: '/search',
+      component: () => import('@/components/AppLayout.vue'),
+      children: [
         {
-          path: 'search',
+          path: '',
           name: 'SearchView',
           component: () => import('@/views/search/SearchView.vue'),
         },
@@ -69,12 +97,13 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
-  if (to.path !== '/login' && !auth.isLoggedIn) {
+  const publicPages = ['/', '/login']
+  if (publicPages.includes(to.path)) {
+    next()
+  } else if (!auth.isLoggedIn) {
     next('/login')
-  } else if (to.path === '/login' && auth.isLoggedIn) {
-    next('/dashboard')
   } else if (to.meta?.role === 'admin' && !auth.isAdmin) {
-    next('/dashboard')
+    next('/')
   } else {
     next()
   }
