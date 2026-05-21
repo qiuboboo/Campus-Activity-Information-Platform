@@ -32,3 +32,18 @@ export interface RegisterRequest {
 export function register(data: RegisterRequest) {
   return client.post('/auth/register', data)
 }
+
+export function sendVerificationCode(email: string) {
+  return client.post<{ message: string; code?: string }>('/auth/send-code', { email })
+}
+
+export interface RegisterVerifyRequest {
+  username: string
+  password: string
+  email: string
+  verification_code: string
+}
+
+export function registerWithEmail(data: RegisterVerifyRequest) {
+  return client.post('/auth/register', data)
+}

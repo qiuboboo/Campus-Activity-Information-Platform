@@ -13,6 +13,9 @@ const PORT = 5000
 
 // ==================== 模拟数据 ====================
 
+// 存储邮箱验证码（key=邮箱, value=验证码）
+const VERIFICATION_CODES = {}
+
 const DEMO_USER = {
   id: 1,
   username: 'admin',
@@ -191,7 +194,15 @@ const routes = {
       admin: { password: 'admin123456', info: DEMO_USER },
       zhangsan: { password: '123456', info: REGULAR_USER },
     }
-    const matched = users[username] || REGISTERED_USERS[username]
+    // 支持用户名或邮箱登录
+    let matched = users[username] || REGISTERED_USERS[username]
+    if (!matched) {
+      // 按邮箱查找注册用户
+      const byEmail = Object.values(REGISTERED_USERS).find(
+        (u) => u.info.email === username,
+      )
+      if (byEmail) matched = byEmail
+    }
     if (matched && matched.password === password) {
       return {
         token: 'mock-jwt-token-' + Date.now(),
@@ -204,19 +215,39 @@ const routes = {
     return { message: 'invalid credentials' }
   },
 
+  'POST /api/auth/send-code': async (req) => {
+    const { email } = await parseBody(req)
+    if (!email || !email.includes('@')) {
+      return { message: '请输入有效的邮箱地址' }
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    VERIFICATION_CODES[email] = code
+    console.log(`  [Mock] 验证码已发送到 ${email}: ${code}`)
+    return { message: '验证码已发送', code }
+  },
+
   'POST /api/auth/register': async (req) => {
-    const { username, password, role } = await parseBody(req)
+    const { username, password, role, email, verification_code } = await parseBody(req)
     if (!username || !password) return { message: 'username and password are required' }
     if (username.length < 2 || username.length > 50) return { message: 'username must be 2-50 characters' }
     if (password.length < 6) return { message: 'password must be at least 6 characters' }
     if (REGISTERED_USERS[username] || username === 'admin' || username === 'zhangsan') {
       return { message: 'username already exists' }
     }
+    if (email) {
+      if (!email.includes('@')) return { message: '请输入有效的邮箱地址' }
+      if (!verification_code) return { message: '请输入验证码' }
+      if (VERIFICATION_CODES[email] !== verification_code) {
+        return { message: '验证码错误或已过期' }
+      }
+      delete VERIFICATION_CODES[email]
+    }
     const finalRole = (role === 'publisher') ? 'publisher' : 'viewer'
     const newUser = {
       id: nextUserId++,
       username,
       role: finalRole,
+      email: email || null,
       created_at: new Date().toISOString(),
     }
     REGISTERED_USERS[username] = { password, info: newUser }
@@ -504,6 +535,7 @@ server.listen(PORT, () => {
   console.log(`     GET  /api/health`)
   console.log(`     POST /api/auth/login (admin / admin123456, zhangsan / 123456)`)
   console.log(`     POST /api/auth/register`)
+  console.log(`     POST /api/auth/send-code`)
   console.log(`     GET  /api/auth/me`)
   console.log(`     GET  /api/posters`)
   console.log(`     GET  /api/posters/:id`)
