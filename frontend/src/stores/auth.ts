@@ -3,6 +3,20 @@ import { ref, computed } from 'vue'
 import { login as loginApi } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
+  // 启动时清理 localStorage 中可能残留的坏数据
+  ;['token', 'user', 'remembered_user'].forEach(key => {
+    try {
+      const val = localStorage.getItem(key)
+      if (val === 'undefined' || val === 'null' || val === undefined) {
+        localStorage.removeItem(key)
+      } else if (key === 'user' && val) {
+        JSON.parse(val)
+      }
+    } catch {
+      localStorage.removeItem(key)
+    }
+  })
+
   const token = ref(localStorage.getItem('token') || '')
   const user = ref<{ id: number; username: string; role: string } | null>(
     JSON.parse(localStorage.getItem('user') || 'null'),
@@ -15,6 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     const res = await loginApi({ username, password })
     const data = res.data
+    if (!data.token) {
+      throw new Error(data.message || 'invalid credentials')
+    }
     token.value = data.token
     user.value = data.user
     localStorage.setItem('token', data.token)

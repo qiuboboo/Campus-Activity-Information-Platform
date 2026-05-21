@@ -22,3 +22,13 @@ export function login(data: LoginRequest) {
 export function getMe() {
   return client.get('/auth/me')
 }
+
+export interface RegisterRequest {
+  username: string
+  password: string
+  role?: string
+}
+
+export function register(data: RegisterRequest) {
+  return client.post('/auth/register', data)
+}

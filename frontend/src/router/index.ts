@@ -10,9 +10,14 @@ const router = createRouter({
       component: () => import('@/views/home/HomeView.vue'),
     },
     {
-      path: '/login',
+      path: '/auth/login',
       name: 'Login',
-      component: () => import('@/views/login/LoginView.vue'),
+      component: () => import('@/views/auth/login/LoginView.vue'),
+    },
+    {
+      path: '/auth/register',
+      name: 'Register',
+      component: () => import('@/views/auth/register/RegisterView.vue'),
     },
     {
       path: '/dashboard',
@@ -118,17 +123,31 @@ const router = createRouter({
         },
       ],
     },
+    // 404 捕获 — 必须放在最后
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/error/NotFound.vue'),
+    },
   ],
 })
 
 // 路由守卫
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
-  const publicPages = ['/', '/login']
-  if (publicPages.includes(to.path)) {
+  const authPages = ['/auth/login', '/auth/register']
+  const publicPages = ['/', ...authPages]
+
+  // 已登录时访问登录/注册页 → 跳转首页
+  if (auth.isLoggedIn && authPages.includes(to.path)) {
+    next('/')
+    return
+  }
+
+  if (publicPages.includes(to.path) || to.name === 'NotFound') {
     next()
   } else if (!auth.isLoggedIn) {
-    next('/login')
+    next('/auth/login')
   } else if (to.meta?.role === 'admin' && !auth.isAdmin) {
     next('/')
   } else {

@@ -34,7 +34,7 @@ function isActive(path: string) {
 
 function handleLogout() {
   auth.logout()
-  router.push('/login')
+  router.push('/auth/login')
 }
 
 function goHome() {

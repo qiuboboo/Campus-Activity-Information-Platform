@@ -27,7 +27,7 @@ client.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      window.location.href = '/auth/login'
       ElMessage.warning('登录已过期，请重新登录')
     } else if (status === 403) {
       ElMessage.error('权限不足')

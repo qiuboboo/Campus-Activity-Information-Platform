@@ -20,6 +20,17 @@ const DEMO_USER = {
   created_at: '2026-01-01T00:00:00',
 }
 
+const REGULAR_USER = {
+  id: 2,
+  username: 'zhangsan',
+  role: 'publisher',
+  created_at: '2026-03-15T00:00:00',
+}
+
+// 注册用户存储（运行时内存，重启丢失）
+const REGISTERED_USERS = {}
+let nextUserId = 3
+
 const POSTERS = [
   {
     id: 1,
@@ -176,16 +187,43 @@ const routes = {
   // --- 认证 ---
   'POST /api/auth/login': async (req) => {
     const { username, password } = await parseBody(req)
-    if (username === 'admin' && password === 'admin123456') {
+    const users = {
+      admin: { password: 'admin123456', info: DEMO_USER },
+      zhangsan: { password: '123456', info: REGULAR_USER },
+    }
+    const matched = users[username] || REGISTERED_USERS[username]
+    if (matched && matched.password === password) {
       return {
         token: 'mock-jwt-token-' + Date.now(),
-        user: DEMO_USER,
+        user: matched.info,
       }
     }
     return { message: 'invalid credentials' }
   },
   'POST /api/auth/login 401': async (req) => {
     return { message: 'invalid credentials' }
+  },
+
+  'POST /api/auth/register': async (req) => {
+    const { username, password, role } = await parseBody(req)
+    if (!username || !password) return { message: 'username and password are required' }
+    if (username.length < 2 || username.length > 50) return { message: 'username must be 2-50 characters' }
+    if (password.length < 6) return { message: 'password must be at least 6 characters' }
+    if (REGISTERED_USERS[username] || username === 'admin' || username === 'zhangsan') {
+      return { message: 'username already exists' }
+    }
+    const finalRole = (role === 'publisher') ? 'publisher' : 'viewer'
+    const newUser = {
+      id: nextUserId++,
+      username,
+      role: finalRole,
+      created_at: new Date().toISOString(),
+    }
+    REGISTERED_USERS[username] = { password, info: newUser }
+    return {
+      token: 'mock-jwt-token-' + Date.now(),
+      user: newUser,
+    }
   },
 
   'GET /api/auth/me': async (req) => {
@@ -464,7 +502,8 @@ server.listen(PORT, () => {
   console.log(`\n  🎭 Mock API 服务器运行在 http://localhost:${PORT}`)
   console.log(`  📋 支持的接口列表：`)
   console.log(`     GET  /api/health`)
-  console.log(`     POST /api/auth/login (admin / admin123456)`)
+  console.log(`     POST /api/auth/login (admin / admin123456, zhangsan / 123456)`)
+  console.log(`     POST /api/auth/register`)
   console.log(`     GET  /api/auth/me`)
   console.log(`     GET  /api/posters`)
   console.log(`     GET  /api/posters/:id`)

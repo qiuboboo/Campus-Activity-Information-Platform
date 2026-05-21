@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import client from '@/api/client'
 import { listPosters } from '@/api/posters'
 import { listKnowledgeNodes } from '@/api/knowledge'
 
@@ -97,7 +96,7 @@ onMounted(fetchData)
         </div>
         <div class="header-right">
           <el-button v-if="auth.isLoggedIn" type="primary" class="login-btn" @click="router.push('/dashboard')">进入控制台</el-button>
-          <el-button v-else type="primary" class="login-btn" @click="router.push('/login')">登 录</el-button>
+          <el-button v-else type="primary" class="login-btn" @click="router.push('/auth/login')">登 录</el-button>
         </div>
       </header>
 
@@ -117,7 +116,7 @@ onMounted(fetchData)
             <!-- 热门推荐 -->
             <div class="bento-card">
               <h3>热门推荐</h3>
-              <div v-if="hotPosters.length" class="card-list">
+              <div v-if="hotPosters?.length" class="card-list">
                 <div
                   v-for="item in hotPosters"
                   :key="item.id"
@@ -134,7 +133,7 @@ onMounted(fetchData)
             <!-- 快速筛选（分类标签） -->
             <div class="bento-card">
               <h3>快速筛选</h3>
-              <div v-if="categories.length" class="tag-cloud">
+              <div v-if="categories?.length" class="tag-cloud">
                 <el-tag
                   v-for="cat in categories.slice(0, 12)"
                   :key="cat.id"
@@ -153,7 +152,7 @@ onMounted(fetchData)
             <!-- 最新发布 -->
             <div class="bento-card">
               <h3>最新发布</h3>
-              <div v-if="recentPosters.length" class="card-list">
+              <div v-if="recentPosters?.length" class="card-list">
                 <div
                   v-for="item in recentPosters.slice(0, 4)"
                   :key="item.id"
@@ -193,7 +192,7 @@ onMounted(fetchData)
                 <h3>分类入口</h3>
                 <span class="tag">探索</span>
               </div>
-              <div v-if="categories.length" class="category-grid">
+              <div v-if="categories?.length" class="category-grid">
                 <div
                   v-for="cat in categories.slice(0, 6)"
                   :key="cat.id"
