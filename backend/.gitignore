@@ -4,6 +4,3 @@ __pycache__/
 instance/
 app.db
 .pytest_cache/
-
-test_env/
-test_env*/

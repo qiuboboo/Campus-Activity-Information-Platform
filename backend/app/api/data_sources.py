@@ -105,17 +105,12 @@ def crawl(source_id: int):
 
     user_id = int(get_jwt_identity())
 
-    if is_sync:
+    # Sync path — also used for mcp which is fast enough for sync
+    if is_sync or ds.crawl_mode == "mcp":
         if ds.crawl_mode == "mcp":
             result = sync_mcp_crawl(source_id, user_id)
         else:
             result = sync_crawl(source_id, user_id)
-        if not result["success"]:
-            return jsonify({"error": result.get("error", "Crawl failed")}), 500
-        return jsonify(result), 200
-
-    if ds.crawl_mode == "mcp":
-        result = sync_mcp_crawl(source_id, user_id)
         if not result["success"]:
             return jsonify({"error": result.get("error", "Crawl failed")}), 500
         return jsonify(result), 200

@@ -6,6 +6,7 @@ from ..extensions import db
 from ..models import Poster, PosterNode, PosterLink
 from ..services.audit_service import create_audit_log
 from ..services.knowledge_service import rebuild_poster_knowledge, related_payload
+from ..services.notification_service import dispatch_notifications
 from ..services.poster_service import build_poster_fields, generate_poster_html
 from ..utils.auth import roles_required
 
@@ -70,6 +71,7 @@ def create_poster():
     db.session.flush()
     if poster.status == "published":
         rebuild_poster_knowledge(poster)
+        dispatch_notifications(poster)
     db.session.commit()
     return jsonify({"item": poster.to_dict()}), 201
 
@@ -114,6 +116,7 @@ def update_poster(poster_id: int):
 
     if poster.status == "published":
         rebuild_poster_knowledge(poster)
+        dispatch_notifications(poster)
     db.session.commit()
     return jsonify({"item": poster.to_dict()})
 
@@ -156,6 +159,7 @@ def review_poster(poster_id: int):
     poster.review_comment = comment or None
     if poster.status == "published":
         rebuild_poster_knowledge(poster)
+        dispatch_notifications(poster)
     db.session.flush()
 
     actor_id = int(get_jwt_identity())
@@ -245,6 +249,7 @@ def bulk_review():
         if poster.status == "published":
             try:
                 rebuild_poster_knowledge(poster)
+                dispatch_notifications(poster)
             except Exception:
                 failed.append({"id": pid, "error": "knowledge rebuild failed"})
                 continue

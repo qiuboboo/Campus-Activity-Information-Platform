@@ -88,8 +88,8 @@ def update_data_source(
     if content_selector is not None:
         ds.content_selector = content_selector.strip() if content_selector else None
     if crawl_mode is not None:
-        if crawl_mode not in ("basic", "mcp"):
-            raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Use 'basic' or 'mcp'.")
+        if crawl_mode not in ("basic", "rss", "mcp"):
+            raise ValueError(f"Unsupported crawl_mode '{crawl_mode}'. Use 'basic', 'rss', or 'mcp'.")
         ds.crawl_mode = crawl_mode
     if enabled is not None:
         ds.enabled = enabled
