@@ -4,13 +4,17 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..services.crawler_service import crawl_data_source as sync_crawl
 from ..services.crawler_service import crawl_mcp_source as sync_mcp_crawl
 from ..services.data_source_service import (
+    create_crawl_log,
     create_data_source,
+    finish_crawl_log,
     get_crawl_logs,
     get_data_source,
     list_data_sources,
     update_data_source,
 )
+from ..services.weixin_search_service import search_and_fetch as weixin_search_and_fetch
 from ..tasks.crawl_tasks import crawl_data_source_task
+
 from ..utils.auth import roles_required
 
 data_sources_bp = Blueprint("data_sources", __name__)
@@ -104,6 +108,42 @@ def crawl(source_id: int):
     is_sync = data.get("sync", False)
 
     user_id = int(get_jwt_identity())
+
+    # WeChat search — fast enough for sync, uses base_url as search query
+    if ds.crawl_mode == "weixin":
+        results = weixin_search_and_fetch(ds.base_url, max_results=5)
+        from ..models import Poster
+        from ..extensions import db
+        from ..services.dedup_service import check_duplicates
+        from ..services.poster_service import auto_extract_fields
+        from datetime import datetime
+
+        log = create_crawl_log(source_id)
+        created = 0
+        for r in results:
+            dup = check_duplicates(source_url=r["source_url"])
+            if dup:
+                continue
+            extracted = auto_extract_fields(r["title"], r["content"])
+            poster = Poster(
+                title=r["title"],
+                raw_text=r["content"],
+                summary=extracted.get("summary", r["title"]),
+                event_time=extracted.get("event_time"),
+                location=extracted.get("location"),
+                organizer=extracted.get("organizer", "微信公众号"),
+                status="draft",
+                source_type="crawl",
+                source_url=r["source_url"],
+                created_by=user_id,
+            )
+            db.session.add(poster)
+            created += 1
+        db.session.commit()
+        finish_crawl_log(log, "success",
+            message=f"微信搜索完成，找到 {len(results)} 条，新建 {created} 条",
+            pages_found=len(results), drafts_created=created)
+        return jsonify({"success": True, "message": f"微信搜索完成，找到 {len(results)} 条，新建 {created} 条"}), 200
 
     # Sync path — also used for mcp which is fast enough for sync
     if is_sync or ds.crawl_mode == "mcp":

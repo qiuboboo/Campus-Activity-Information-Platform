@@ -87,6 +87,9 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
 
+    # --- Sogou WeChat Search ---
+    SOGOU_COOKIES = os.getenv("SOGOU_COOKIES", "")
+
     # --- Crawler Security ---
     CRAWL_REQUEST_INTERVAL = int(os.getenv("CRAWL_REQUEST_INTERVAL", "2"))
     CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
