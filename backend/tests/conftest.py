@@ -22,6 +22,7 @@ class TestConfig(Config):
     EMBEDDING_ENABLED = False
     ENABLE_SCHEDULED_CRAWL = False
     LLM_API_KEY = ""
+    REDIS_URL = ""  # disable Redis for tests
 
 
 @pytest.fixture

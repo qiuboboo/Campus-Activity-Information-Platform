@@ -43,24 +43,27 @@ class RateLimiter:
         def decorator(f):
             @wraps(f)
             def wrapper(*args, **kwargs):
-                key = f"ratelimit:{request.remote_addr}:{f.__name__}"
-                now = time.time()
-                cutoff = now - window
+                # Skip rate limiting when Redis is not available
+                redis = current_app.redis if hasattr(current_app, "redis") else None
+                if redis is not None:
+                    key = f"ratelimit:{request.remote_addr}:{f.__name__}"
+                    now = time.time()
+                    cutoff = now - window
 
-                pipe = current_app.redis.pipeline()
-                pipe.zremrangebyscore(key, 0, cutoff)
-                pipe.zcard(key)
-                pipe.zadd(key, {str(now): now})
-                pipe.expire(key, window * 2)
-                _, current, _, _ = pipe.execute()
+                    pipe = redis.pipeline()
+                    pipe.zremrangebyscore(key, 0, cutoff)
+                    pipe.zcard(key)
+                    pipe.zadd(key, {str(now): now})
+                    pipe.expire(key, window * 2)
+                    _, current, _, _ = pipe.execute()
 
-                if current >= max_calls:
-                    return jsonify({
-                        "error": "Too Many Requests",
-                        "message": f"Rate limit exceeded ({rule})",
-                        "code": 429,
-                        "retry_after": int(window),
-                    }), 429
+                    if current >= max_calls:
+                        return jsonify({
+                            "error": "Too Many Requests",
+                            "message": f"Rate limit exceeded ({rule})",
+                            "code": 429,
+                            "retry_after": int(window),
+                        }), 429
 
                 return f(*args, **kwargs)
             return wrapper

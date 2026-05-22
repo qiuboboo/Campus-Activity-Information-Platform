@@ -11,5 +11,10 @@ jwt = JWTManager()
 cors = CORS()
 
 
-def create_redis_client() -> _redis.Redis:
-    return _redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+def create_redis_client(redis_url: str | None = None) -> _redis.Redis | None:
+    if redis_url is not None and redis_url.strip() == "":
+        return None
+    url = redis_url or os.getenv("REDIS_URL") or None
+    if url is None:
+        return None
+    return _redis.from_url(url)

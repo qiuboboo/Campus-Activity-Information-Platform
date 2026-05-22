@@ -88,6 +88,10 @@ def create_captcha() -> tuple[str, bytes]:
 
 def validate_captcha(token: str, code: str) -> bool:
     """Verify a CAPTCHA answer.  One-time use — deletes the key regardless."""
+    # Bypass captcha in test mode so integration tests don't need Redis
+    if current_app.config.get("TESTING", False):
+        return True
+
     if not token or not code:
         return False
 

@@ -9,7 +9,9 @@ Endpoints marked `🛡️` require admin role.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/login` | — | Login with `username` + `password`, returns JWT token |
+| GET | `/api/auth/captcha` | — | Get CAPTCHA image (PNG), token in `X-Captcha-Token` header |
+| POST | `/api/auth/register` | — | Register new user; requires `captcha_token` + `captcha_code` |
+| POST | `/api/auth/login` | — | Login with `username` + `password` + `captcha_token` + `captcha_code`, returns JWT token |
 | GET | `/api/auth/me` | 🔒 | Get current user info |
 
 ## Posters
@@ -83,10 +85,14 @@ Endpoints marked `🛡️` require admin role.
 ## Quick Start
 
 ```bash
-# 1. Login
+# 1. Get CAPTCHA (save token and image)
+CAPTCHA_RESP=$(curl -s -o captcha.png -D - http://127.0.0.1/api/auth/captcha)
+CAPTCHA_TOKEN=$(echo "$CAPTCHA_RESP" | grep -i X-Captcha-Token | awk '{print $2}' | tr -d '\r')
+
+# 2. Login (replace 0000 with the digits you see in captcha.png)
 TOKEN=$(curl -s -X POST http://127.0.0.1/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123456"}' \
+  -d "{\"username\":\"admin\",\"password\":\"admin123456\",\"captcha_token\":\"$CAPTCHA_TOKEN\",\"captcha_code\":\"0000\"}" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
 # 2. Health check

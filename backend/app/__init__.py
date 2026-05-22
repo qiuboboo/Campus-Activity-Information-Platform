@@ -89,9 +89,10 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     jwt.init_app(app)
     cors.init_app(app)
 
-    # Initialize Redis client
-    app.redis = create_redis_client()
-    limiter.init_app(app.redis)
+    # Initialize Redis client (may be None in test/no-redis env)
+    app.redis = create_redis_client(app.config.get("REDIS_URL"))
+    if app.redis is not None:
+        limiter.init_app(app.redis)
 
     _register_error_handlers(app)
     _register_request_id(app)
