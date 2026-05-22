@@ -1,0 +1,71 @@
+services:
+  api:
+    build: .
+    container_name: campus-activity-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      - postgres
+      - redis
+      - copilot-proxy
+
+  postgres:
+    image: pgvector/pgvector:0.7.4-pg16
+    container_name: campus-activity-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: campus_activity
+      POSTGRES_USER: campus
+      POSTGRES_PASSWORD: campus123456
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  worker:
+    build: .
+    container_name: campus-activity-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.celery_app.celery worker --loglevel=INFO --concurrency=1 -Q crawl,ai,index,celery
+
+  beat:
+    build: .
+    container_name: campus-activity-beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.celery_app.celery beat --loglevel=INFO
+
+  redis:
+    image: redis:7
+    container_name: campus-activity-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  copilot-proxy:
+    image: node:20-slim
+    container_name: campus-activity-copilot-proxy
+    restart: unless-stopped
+    working_dir: /data
+    env_file:
+      - .env
+    command: sh -c "npx copilot-api-node20@latest start --openai --port 4141 --hostname 0.0.0.0"
+    ports:
+      - "127.0.0.1:4141:4141"
+    volumes:
+      - copilot-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:
+  copilot-data:

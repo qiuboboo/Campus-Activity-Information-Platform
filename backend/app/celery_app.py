@@ -1,0 +1,39 @@
+import os
+from datetime import timedelta
+
+from celery import Celery
+
+from .config import Config
+
+# Ensure task modules are imported so Celery discovers the @celery.task decorators
+# noqa — imports ensure task registration but may appear unused
+from . import tasks  # noqa: F401
+
+celery = Celery(
+    "campus_activity",
+    broker=os.getenv("REDIS_URL", Config.REDIS_URL),
+    backend=os.getenv("REDIS_URL", Config.REDIS_URL),
+)
+
+celery.conf.update(
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    task_track_started=True,
+    worker_concurrency=1,
+    # Route tasks to dedicated queues: crawl, ai, index
+    task_routes={
+        "app.tasks.crawl_tasks.*": {"queue": "crawl"},
+        "app.tasks.ai_tasks.*": {"queue": "ai"},
+        "app.tasks.index_tasks.*": {"queue": "index"},
+    },
+)
+
+# Beat schedule (activated when beat service runs)
+celery.conf.beat_schedule = {
+    "crawl-all-enabled-sources": {
+        "task": "app.tasks.crawl_tasks.crawl_all_enabled_sources",
+        "schedule": timedelta(hours=Config.CRAWL_SCHEDULE_HOURS),
+        "options": {"queue": "crawl"},
+    },
+}
