@@ -87,7 +87,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
-    cors.init_app(app)
+    cors.init_app(app, origins=app.config.get("CORS_ORIGINS", "*"))
 
     # Initialize Redis client (may be None in test/no-redis env)
     app.redis = create_redis_client(app.config.get("REDIS_URL"))

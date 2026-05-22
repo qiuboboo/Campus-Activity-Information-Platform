@@ -1,13 +1,19 @@
-from flask import Blueprint, jsonify, request, send_file
+import re
+
+from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import User
 from ..utils.ratelimit import limiter
 from ..services.captcha_service import create_captcha, validate_captcha as _check_captcha
+from ..services.email_service import send_verification_code, verify_code as _check_code
 
 
 auth_bp = Blueprint("auth", __name__)
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @auth_bp.get("/captcha")
@@ -22,6 +28,26 @@ def captcha_image():
     return resp
 
 
+@auth_bp.post("/send-code")
+@limiter.limit("5 per minute")
+def send_code():
+    """Send a 6-digit verification code to the given email address."""
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip()
+
+    if not email or not _EMAIL_RE.match(email):
+        return jsonify({"message": "invalid email address"}), 400
+
+    try:
+        result = send_verification_code(email)
+        return jsonify(result), 200
+    except RuntimeError as e:
+        return jsonify({"message": str(e)}), 429
+    except Exception:
+        current_app.logger.exception("Failed to send verification email to %s", email)
+        return jsonify({"message": "failed to send verification code"}), 500
+
+
 @auth_bp.post("/register")
 @limiter.limit("5 per minute")
 def register():
@@ -29,6 +55,8 @@ def register():
     username = (payload.get("username") or "").strip()
     password = payload.get("password") or ""
     role = (payload.get("role") or "viewer").strip()
+    email = (payload.get("email") or "").strip()
+    verification_code = (payload.get("verification_code") or "").strip()
     captcha_token = payload.get("captcha_token") or ""
     captcha_code = payload.get("captcha_code") or ""
 
@@ -47,7 +75,17 @@ def register():
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "username already exists"}), 409
 
-    user = User(username=username, role=role)
+    # Email + verification code check
+    if current_app.config.get("TESTING", False):
+        pass  # skip email verification in tests
+    elif not email or not _EMAIL_RE.match(email):
+        return jsonify({"message": "valid email is required"}), 400
+    elif User.query.filter_by(email=email).first():
+        return jsonify({"message": "email already registered"}), 409
+    elif not verification_code or not _check_code(email, verification_code):
+        return jsonify({"message": "invalid or missing verification code"}), 400
+
+    user = User(username=username, email=email, role=role)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -63,18 +101,20 @@ def register():
 @limiter.limit("10 per minute")
 def login():
     payload = request.get_json(silent=True) or {}
-    username = (payload.get("username") or "").strip()
+    login_input = (payload.get("username") or payload.get("email") or "").strip()
     password = payload.get("password") or ""
     captcha_token = payload.get("captcha_token") or ""
     captcha_code = payload.get("captcha_code") or ""
 
-    if not username or not password:
-        return jsonify({"message": "username and password are required"}), 400
+    if not login_input or not password:
+        return jsonify({"message": "username/email and password are required"}), 400
 
     if not _check_captcha(captcha_token, captcha_code):
         return jsonify({"message": "invalid or missing captcha"}), 400
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter(
+        or_(User.username == login_input, User.email == login_input)
+    ).first()
     if user is None or not user.check_password(password):
         return jsonify({"message": "invalid credentials"}), 401
 

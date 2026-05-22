@@ -10,8 +10,9 @@ Endpoints marked `🛡️` require admin role.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/auth/captcha` | — | Get CAPTCHA image (PNG), token in `X-Captcha-Token` header |
-| POST | `/api/auth/register` | — | Register new user; requires `captcha_token` + `captcha_code` |
-| POST | `/api/auth/login` | — | Login with `username` + `password` + `captcha_token` + `captcha_code`, returns JWT token |
+| POST | `/api/auth/send-code` | — | Send email verification code; body: `{"email": "..."}` |
+| POST | `/api/auth/register` | — | Register new user; requires `email`, `verification_code`, `captcha_token`, `captcha_code` |
+| POST | `/api/auth/login` | — | Login with `username` (or `email`) + `password` + `captcha_token` + `captcha_code`, returns JWT token |
 | GET | `/api/auth/me` | 🔒 | Get current user info |
 
 ## Posters
@@ -89,7 +90,17 @@ Endpoints marked `🛡️` require admin role.
 CAPTCHA_RESP=$(curl -s -o captcha.png -D - http://127.0.0.1/api/auth/captcha)
 CAPTCHA_TOKEN=$(echo "$CAPTCHA_RESP" | grep -i X-Captcha-Token | awk '{print $2}' | tr -d '\r')
 
-# 2. Login (replace 0000 with the digits you see in captcha.png)
+# 2. Send verification code to email
+curl -X POST http://127.0.0.1/api/auth/send-code \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com"}'
+
+# 3. Register (replace 0000 with captcha digits and 123456 with actual code from email)
+curl -X POST http://127.0.0.1/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"newuser\",\"password\":\"pass123456\",\"email\":\"user@example.com\",\"verification_code\":\"123456\",\"captcha_token\":\"$CAPTCHA_TOKEN\",\"captcha_code\":\"0000\"}"
+
+# 4. Login (supports both username and email)
 TOKEN=$(curl -s -X POST http://127.0.0.1/api/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"admin\",\"password\":\"admin123456\",\"captcha_token\":\"$CAPTCHA_TOKEN\",\"captcha_code\":\"0000\"}" \

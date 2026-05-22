@@ -76,6 +76,17 @@ class Config:
     # --- MCP Service ---
     MCP_SERVERS = os.getenv("MCP_SERVERS", "")
 
+    # --- CORS ---
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+
+    # --- Email / SMTP ---
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.qq.com")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_USE_TLS = _as_bool(os.getenv("MAIL_USE_TLS"), True)
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
+
     # --- Crawler Security ---
     CRAWL_REQUEST_INTERVAL = int(os.getenv("CRAWL_REQUEST_INTERVAL", "2"))
     CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
