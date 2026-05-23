@@ -4,6 +4,7 @@
 
 - [Project Concept](项目构思说明.docx)
 - [Software Requirements Specification](软件需求规格说明书.docx)
+- [Frontend Development Process](前端开发规范与流程.md)
 - [Backend Technical Design](后端技术文档.md)
 - [Backend and Server Getting Started Guide](从零开始后端与服务器选型指南.md)
 - [Server Permissions Guide](服务器权限与开发账户说明.md)
