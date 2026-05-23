@@ -238,6 +238,11 @@ function handleSearch() {
   }
 }
 
+function handleLogout() {
+  auth.logout()
+  router.push('/')
+}
+
 const currentYearLabel = new Date().getFullYear()
 
 onMounted(fetchData)
@@ -275,7 +280,8 @@ onUnmounted(stopHotCarousel)
         </div>
         <div class="nav-actions">
           <template v-if="auth.isLoggedIn">
-            <span class="nav-user" @click="router.push('/dashboard')">{{ auth.user?.username }}</span>
+            <span class="nav-user">{{ auth.user?.username }}</span>
+            <el-button text class="nav-link-text" @click="handleLogout">退出登录</el-button>
           </template>
           <template v-else>
             <el-button text class="nav-link-text" @click="router.push('/auth/login')">登录</el-button>
@@ -321,7 +327,7 @@ onUnmounted(stopHotCarousel)
       <!-- ====== 中间主内容 ====== -->
       <main class="home-main">
         <!-- 热门活动 - 轮播 -->
-        <div class="hot-section" v-if="!loading && hotPosters.length > 0">
+        <div class="hot-section" v-if="!loading">
           <div class="section-header">
             <h2 class="section-title">
               <el-icon class="section-title-icon"><TrendCharts /></el-icon>
@@ -331,7 +337,7 @@ onUnmounted(stopHotCarousel)
               查看全部 <el-icon><ArrowRight /></el-icon>
             </el-button>
           </div>
-          <div class="hot-carousel" @click="goPosterDetail(hotPosters[currentHotIndex].id)">
+          <div v-if="hotPosters.length > 0" class="hot-carousel" @click="goPosterDetail(hotPosters[currentHotIndex].id)">
             <div class="hc-card">
               <div class="hc-badge">
                 <el-tag
@@ -363,6 +369,9 @@ onUnmounted(stopHotCarousel)
                 @click.stop="currentHotIndex = i; startHotCarousel()"
               ></span>
             </div>
+          </div>
+          <div v-else class="hot-empty">
+            <el-empty :image-size="80" description="暂无活动" />
           </div>
         </div>
 
@@ -632,13 +641,6 @@ onUnmounted(stopHotCarousel)
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.nav-user:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .nav-dashboard-btn {
@@ -956,6 +958,16 @@ onUnmounted(stopHotCarousel)
 .hot-carousel:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 28px rgba(13, 94, 60, 0.08);
+}
+
+.hot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  background: #fff;
+  border: 1px dashed #d8dee9;
+  border-radius: 14px;
 }
 
 .hc-badge { margin-bottom: 12px; }

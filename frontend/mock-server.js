@@ -1,19 +1,13 @@
-/**
- * 前端 Mock API 服务器
- * 纯前端开发时使用，无需启动后端。
- * 监听 5000 端口，模拟所有后端 `/api/*` 接口。
+﻿/**
+ * Minimal frontend Mock API server.
+ * Supports the currently kept frontend pages: home, login, register, and error page.
  *
- * 启动方式：node mock-server.js
- * （然后在另一个终端运行 npm run dev）
+ * Start: node mock-server.js
  */
 
 import http from 'node:http'
 
 const PORT = 5000
-
-// ==================== 模拟数据 ====================
-
-// 存储邮箱验证码（key=邮箱, value=验证码）
 const VERIFICATION_CODES = {}
 
 const DEMO_USER = {
@@ -30,142 +24,16 @@ const REGULAR_USER = {
   created_at: '2026-03-15T00:00:00',
 }
 
-// 注册用户存储（运行时内存，重启丢失）
 const REGISTERED_USERS = {}
 let nextUserId = 3
 
-const POSTERS = [
-  {
-    id: 1,
-    title: '2026 校园科技文化节开幕式',
-    raw_text: '2026 校园科技文化节将于 2026-05-10 19:00 在大学生活动中心大礼堂举行，由校团委主办。',
-    summary: '校园科技文化节开幕式，面向全校师生开放。',
-    event_time: '2026-05-10T19:00:00',
-    location: '大学生活动中心大礼堂',
-    organizer: '校团委',
-    activity_type: '其他',
-    status: 'published',
-    source_type: 'manual',
-    source_url: 'https://example.edu.cn/events/tech-culture-opening',
-    created_by: 1,
-    created_at: '2026-04-01T10:00:00',
-  },
-  {
-    id: 2,
-    title: 'AI 创新应用讲座',
-    raw_text: 'AI 创新应用讲座将于 2026-05-10 15:00 在大学生活动中心大礼堂举行，由计算机学院主办。',
-    summary: '面向全校学生的人工智能应用讲座。',
-    event_time: '2026-05-10T15:00:00',
-    location: '大学生活动中心大礼堂',
-    organizer: '计算机学院',
-    activity_type: '讲座',
-    status: 'published',
-    source_type: 'manual',
-    source_url: 'https://example.edu.cn/events/ai-lecture',
-    created_by: 1,
-    created_at: '2026-04-02T10:00:00',
-  },
-  {
-    id: 3,
-    title: '校园志愿服务文化论坛',
-    raw_text: '校园志愿服务文化论坛将于 2026-05-12 14:00 在图书馆报告厅举行，由校团委主办。',
-    summary: '围绕校园志愿服务与文化建设开展交流。',
-    event_time: '2026-05-12T14:00:00',
-    location: '图书馆报告厅',
-    organizer: '校团委',
-    activity_type: '论坛',
-    status: 'published',
-    source_type: 'manual',
-    source_url: 'https://example.edu.cn/events/volunteer-forum',
-    created_by: 1,
-    created_at: '2026-04-03T10:00:00',
-  },
-  {
-    id: 4,
-    title: '春季篮球联赛决赛',
-    raw_text: '春季篮球联赛决赛将于 2026-05-15 16:00 在校体育馆举行，由体育部主办。',
-    summary: '各学院代表队角逐冠军。',
-    event_time: '2026-05-15T16:00:00',
-    location: '校体育馆',
-    organizer: '体育部',
-    activity_type: '体育',
-    status: 'published',
-    source_type: 'manual',
-    source_url: 'https://example.edu.cn/events/basketball-final',
-    created_by: 1,
-    created_at: '2026-04-05T10:00:00',
-  },
-  {
-    id: 5,
-    title: '校园歌手大赛海选',
-    raw_text: '校园歌手大赛海选将于 2026-05-18 18:00 在音乐厅举行，由校学生会主办。',
-    summary: '面向全校学生的歌唱比赛海选。',
-    event_time: '2026-05-18T18:00:00',
-    location: '音乐厅',
-    organizer: '校学生会',
-    activity_type: '晚会',
-    status: 'pending_review',
-    source_type: 'manual',
-    source_url: '',
-    created_by: 1,
-    created_at: '2026-04-10T10:00:00',
-  },
-  {
-    id: 6,
-    title: '考研经验分享会',
-    raw_text: '考研经验分享会将于 2026-05-20 14:00 在教学楼 101 教室举行，由学习部主办。',
-    summary: '邀请优秀学长学姐分享考研备考经验。',
-    event_time: '2026-05-20T14:00:00',
-    location: '教学楼 101 教室',
-    organizer: '学习部',
-    activity_type: '讲座',
-    status: 'draft',
-    source_type: 'manual',
-    source_url: '',
-    created_by: 1,
-    created_at: '2026-04-15T10:00:00',
-  },
-]
-
-const KNOWLEDGE_NODES = [
-  { id: 1, name: '校园科技文化节', alias: null, node_type: 'topic', description: '年度校园科技文化盛会', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
-  { id: 2, name: '校团委', alias: '团委', node_type: 'organization', description: '共青团中山大学委员会', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
-  { id: 3, name: 'AI 创新应用讲座', alias: null, node_type: 'topic', description: '人工智能应用系列讲座', source_url: null, created_at: '2026-04-02T10:00:00', updated_at: '2026-04-02T10:00:00' },
-  { id: 4, name: '计算机学院', alias: '计科院', node_type: 'organization', description: '计算机科学与技术学院', source_url: null, created_at: '2026-04-02T10:00:00', updated_at: '2026-04-02T10:00:00' },
-  { id: 5, name: '大学生活动中心大礼堂', alias: '大礼堂', node_type: 'place', description: '主校区大型活动场馆', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
-  { id: 6, name: '图书馆报告厅', alias: null, node_type: 'place', description: '图书馆多功能报告厅', source_url: null, created_at: '2026-04-03T10:00:00', updated_at: '2026-04-03T10:00:00' },
-  { id: 7, name: '体育部', alias: null, node_type: 'organization', description: '中山大学体育部', source_url: null, created_at: '2026-04-05T10:00:00', updated_at: '2026-04-05T10:00:00' },
-  { id: 8, name: '校学生会', alias: '学生会', node_type: 'organization', description: '中山大学学生会', source_url: null, created_at: '2026-04-10T10:00:00', updated_at: '2026-04-10T10:00:00' },
-  { id: 9, name: '2026年5月', alias: null, node_type: 'time', description: null, source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
-]
-
-const KNOWLEDGE_LINKS = [
-  { id: 1, source_node_id: 1, target_node_id: 2, relation: '主办单位' },
-  { id: 2, source_node_id: 3, target_node_id: 4, relation: '主办单位' },
-  { id: 3, source_node_id: 1, target_node_id: 5, relation: '举办地点' },
-  { id: 4, source_node_id: 1, target_node_id: 9, relation: '举办时间' },
-]
-
-const SOURCES = [
-  { id: 1, name: '学校官网', type: 'website', base_url: 'https://www.example.edu.cn', is_active: true, last_crawled_at: null },
-  { id: 2, name: '团委公众号', type: 'wechat', base_url: 'https://mp.weixin.qq.com', is_active: true, last_crawled_at: null },
-]
-
-const AUDIT_LOGS = [
-  { id: 1, poster_id: 5, action: 'submit', reviewer_id: null, comment: null, created_at: '2026-04-10T10:00:00' },
-]
-
-// ==================== 工具函数 ====================
-
-let currentPosterId = 7
-let currentNodeId = 6
-let currentLinkId = 4
+const POSTERS = []
 
 function jsonResponse(res, data, status = 200) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   })
   res.end(JSON.stringify(data))
@@ -183,54 +51,46 @@ function parseBody(req) {
 }
 
 function getToken(req) {
-  const auth = req.headers['authorization'] || ''
+  const auth = req.headers.authorization || ''
   return auth.startsWith('Bearer ') ? auth.slice(7) : null
 }
 
-// ==================== 路由 ====================
+function findUser(usernameOrEmail) {
+  const users = {
+    admin: { password: 'admin123456', info: DEMO_USER },
+    zhangsan: { password: '123456', info: REGULAR_USER },
+    ...REGISTERED_USERS,
+  }
+
+  if (users[usernameOrEmail]) return users[usernameOrEmail]
+  return Object.values(users).find((user) => user.info.email === usernameOrEmail) || null
+}
 
 const routes = {
-  // --- 健康检查 ---
-  'GET /api/health': async (_req) => ({
+  'GET /api/health': async () => ({
     status: 'ok',
-    database: 'ok',
-    service: 'campus-activity-backend (mock)',
+    service: 'campus-activity-frontend-mock',
     timestamp: new Date().toISOString(),
   }),
 
-  // --- 认证 ---
   'POST /api/auth/login': async (req) => {
     const { username, password } = await parseBody(req)
-    const users = {
-      admin: { password: 'admin123456', info: DEMO_USER },
-      zhangsan: { password: '123456', info: REGULAR_USER },
-    }
-    // 支持用户名或邮箱登录
-    let matched = users[username] || REGISTERED_USERS[username]
-    if (!matched) {
-      // 按邮箱查找注册用户
-      const byEmail = Object.values(REGISTERED_USERS).find(
-        (u) => u.info.email === username,
-      )
-      if (byEmail) matched = byEmail
-    }
+    const matched = findUser(username)
     if (matched && matched.password === password) {
       return {
-        token: 'mock-jwt-token-' + Date.now(),
+        token: `mock-jwt-token-${Date.now()}`,
         user: matched.info,
       }
     }
     return { message: 'invalid credentials' }
   },
-  'POST /api/auth/login 401': async (req) => {
-    return { message: 'invalid credentials' }
-  },
 
   'POST /api/auth/send-code': async (req) => {
     const { email } = await parseBody(req)
-    if (!email || !email.includes('@')) {
+    if (!email || !String(email).includes('@')) {
       return { message: '请输入有效的邮箱地址' }
     }
+
     const code = String(Math.floor(100000 + Math.random() * 900000))
     VERIFICATION_CODES[email] = code
     console.log(`  [Mock] 验证码已发送到 ${email}: ${code}`)
@@ -238,334 +98,107 @@ const routes = {
   },
 
   'POST /api/auth/register': async (req) => {
-    const { username, password, role, email, verification_code } = await parseBody(req)
+    const { username, password, email, verification_code } = await parseBody(req)
     if (!username || !password) return { message: 'username and password are required' }
-    if (username.length < 2 || username.length > 50) return { message: 'username must be 2-50 characters' }
-    if (password.length < 6) return { message: 'password must be at least 6 characters' }
-    if (REGISTERED_USERS[username] || username === 'admin' || username === 'zhangsan') {
-      return { message: 'username already exists' }
+    if (String(username).length < 2 || String(username).length > 50) {
+      return { message: 'username must be 2-50 characters' }
     }
-    if (email) {
-      if (!email.includes('@')) return { message: '请输入有效的邮箱地址' }
-      if (!verification_code) return { message: '请输入验证码' }
-      if (VERIFICATION_CODES[email] !== verification_code) {
-        return { message: '验证码错误或已过期' }
-      }
-      delete VERIFICATION_CODES[email]
-    }
-    const finalRole = (role === 'publisher') ? 'publisher' : 'viewer'
-    const newUser = {
+    if (String(password).length < 6) return { message: 'password must be at least 6 characters' }
+    if (findUser(username)) return { message: 'username already exists' }
+    if (!email || !String(email).includes('@')) return { message: '请输入有效的邮箱地址' }
+    if (!verification_code) return { message: '请输入验证码' }
+    if (VERIFICATION_CODES[email] !== verification_code) return { message: '验证码错误或已过期' }
+
+    delete VERIFICATION_CODES[email]
+    const user = {
       id: nextUserId++,
       username,
-      role: finalRole,
-      email: email || null,
+      role: 'viewer',
+      email,
       created_at: new Date().toISOString(),
     }
-    REGISTERED_USERS[username] = { password, info: newUser }
+    REGISTERED_USERS[username] = { password, info: user }
     return {
-      token: 'mock-jwt-token-' + Date.now(),
-      user: newUser,
+      token: `mock-jwt-token-${Date.now()}`,
+      user,
     }
   },
 
   'GET /api/auth/me': async (req) => {
-    const token = getToken(req)
-    if (!token) return { user: null }
+    if (!getToken(req)) return { user: null }
     return { user: DEMO_USER }
   },
 
-  // --- 海报 ---
   'GET /api/posters': async (req) => {
     const url = new URL(req.url, `http://localhost:${PORT}`)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const perPage = parseInt(url.searchParams.get('per_page') || '10')
+    const page = Math.max(parseInt(url.searchParams.get('page') || '1', 10), 1)
+    const perPage = Math.max(parseInt(url.searchParams.get('per_page') || '10', 10), 1)
     const status = url.searchParams.get('status')
-    const keyword = url.searchParams.get('keyword')
-    let list = [...POSTERS]
-    if (status) list = list.filter((p) => p.status === status)
-    if (keyword) list = list.filter((p) => p.title.includes(keyword) || p.summary?.includes(keyword))
-    const total = list.length
+    const keyword = url.searchParams.get('keyword') || url.searchParams.get('q')
+
+    let items = [...POSTERS]
+    if (status) items = items.filter((poster) => poster.status === status)
+    if (keyword) {
+      items = items.filter((poster) =>
+        poster.title.includes(keyword)
+        || poster.summary.includes(keyword)
+        || poster.raw_text.includes(keyword)
+        || poster.location.includes(keyword)
+        || poster.organizer.includes(keyword),
+      )
+    }
+
+    const total = items.length
     const start = (page - 1) * perPage
-    const items = list.slice(start, start + perPage)
-    return { items, total, page, per_page: perPage, pages: Math.ceil(total / perPage) }
-  },
-
-  // --- 首页精选 ---
-  'GET /api/home/featured': async () => {
-    const featured = POSTERS.filter((p) => p.status === 'published').slice(0, 3)
-    return { items: featured }
-  },
-
-  'GET /api/posters/:id': async (req, id) => {
-    const poster = POSTERS.find((p) => p.id === Number(id))
-    if (!poster) return { message: 'not found' }
-    return { poster }
-  },
-
-  'POST /api/posters': async (req) => {
-    const body = await parseBody(req)
-    const poster = {
-      id: currentPosterId++,
-      ...body,
-      created_by: 1,
-      created_at: new Date().toISOString(),
-      status: body.status || 'draft',
-    }
-    POSTERS.push(poster)
-    return { poster }
-  },
-
-  'PUT /api/posters/:id': async (req, id) => {
-    const body = await parseBody(req)
-    const idx = POSTERS.findIndex((p) => p.id === Number(id))
-    if (idx === -1) return { message: 'not found' }
-    POSTERS[idx] = { ...POSTERS[idx], ...body }
-    return { poster: POSTERS[idx] }
-  },
-
-  'POST /api/posters/:id/review': async (req, id) => {
-    const body = await parseBody(req)
-    const idx = POSTERS.findIndex((p) => p.id === Number(id))
-    if (idx === -1) return { message: 'not found' }
-    POSTERS[idx].status = body.status || 'published'
-    AUDIT_LOGS.push({
-      id: AUDIT_LOGS.length + 1,
-      poster_id: Number(id),
-      action: body.status === 'approved' ? 'approve' : 'reject',
-      reviewer_id: 1,
-      comment: body.comment || '',
-      created_at: new Date().toISOString(),
-    })
-    return { poster: POSTERS[idx] }
-  },
-
-  'POST /api/posters/:id/submit': async (_req, id) => {
-    const idx = POSTERS.findIndex((p) => p.id === Number(id))
-    if (idx === -1) return { message: 'not found' }
-    POSTERS[idx].status = 'pending_review'
-    return { poster: POSTERS[idx] }
-  },
-
-  // --- 知识图谱 ---
-  'GET /api/knowledge/nodes': async () => ({
-    items: KNOWLEDGE_NODES,
-    total: KNOWLEDGE_NODES.length,
-  }),
-
-  'GET /api/knowledge/nodes/:id': async (_req, id) => {
-    const node = KNOWLEDGE_NODES.find((n) => n.id === Number(id))
-    if (!node) return { message: 'not found' }
-    const relatedLinks = KNOWLEDGE_LINKS.filter(
-      (l) => l.source_node_id === node.id || l.target_node_id === node.id,
-    )
-    const relatedNodeIds = new Set(
-      relatedLinks.flatMap((l) => [l.source_node_id, l.target_node_id]),
-    )
-    const relatedNodes = KNOWLEDGE_NODES.filter((n) => relatedNodeIds.has(n.id) && n.id !== node.id)
-    return { node, links: relatedLinks, related_nodes: relatedNodes }
-  },
-
-  // --- 搜索 ---
-  'GET /api/search': async (req) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`)
-    const q = url.searchParams.get('q') || ''
-    const results = POSTERS.filter(
-      (p) => p.title.includes(q) || p.summary?.includes(q) || p.raw_text?.includes(q),
-    )
-    return { results, total: results.length, query: q }
-  },
-
-  'GET /api/search/external': async (req) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`)
-    const q = url.searchParams.get('q') || ''
     return {
-      results: [
-        { title: `外部结果：${q}`, url: 'https://example.com', snippet: `关于"${q}"的外部搜索结果示例。` },
-        { title: `"${q}" 相关信息`, url: 'https://example.org', snippet: `更多与"${q}"相关的外部信息。` },
-      ],
-      total: 2,
-      query: q,
+      items: items.slice(start, start + perPage),
+      total,
+      page,
+      per_page: perPage,
+      pages: Math.ceil(total / perPage),
     }
   },
-
-  // --- 数据源 ---
-  'GET /api/data-sources': async () => ({ items: SOURCES }),
-  'POST /api/data-sources': async (req) => {
-    const body = await parseBody(req)
-    const ds = { id: SOURCES.length + 1, ...body, is_active: true, last_crawled_at: null }
-    SOURCES.push(ds)
-    return { data_source: ds }
-  },
-  'DELETE /api/data-sources/:id': async (_req, id) => {
-    const idx = SOURCES.findIndex((s) => s.id === Number(id))
-    if (idx !== -1) SOURCES.splice(idx, 1)
-    return { message: 'deleted' }
-  },
-  'POST /api/data-sources/:id/crawl': async () => ({
-    message: 'crawl task started',
-    task_id: 'mock-task-' + Date.now(),
-  }),
-
-  // --- 字典 ---
-  'GET /api/dicts/:type': async (_req, type) => ({
-    items: [
-      { code: type === 'poster_status' ? 'published' : 'lecture', label: type === 'poster_status' ? '已发布' : '讲座' },
-      { code: type === 'poster_status' ? 'draft' : 'competition', label: type === 'poster_status' ? '草稿' : '竞赛' },
-      { code: type === 'poster_status' ? 'pending_review' : 'volunteer', label: type === 'poster_status' ? '待审核' : '志愿' },
-    ],
-  }),
-
-  // --- 审计日志 ---
-  'GET /api/audit-logs': async () => ({ items: AUDIT_LOGS }),
-
-  // --- AI ---
-  'POST /api/ai/analyze': async (req) => {
-    const body = await parseBody(req)
-    return {
-      result: `已分析内容：${(body.text || '').slice(0, 50)}...`,
-      suggestions: ['建议添加活动详情', '建议补充联系信息'],
-      summary: 'AI 分析完成（Mock）',
-    }
-  },
-
-  // --- 仪表盘摘要 ---
-  'GET /api/demo/summary': async () => {
-    const published = POSTERS.filter((p) => p.status === 'published').length
-    const draft = POSTERS.filter((p) => p.status === 'draft' || p.status === 'pending_review').length
-    return {
-      posters: {
-        total: POSTERS.length,
-        published,
-        draft,
-        rejected: 0,
-      },
-      knowledge_nodes: KNOWLEDGE_NODES.length,
-      poster_links: KNOWLEDGE_LINKS.length,
-      data_sources: SOURCES.length,
-      last_crawl: SOURCES.some((s) => s.last_crawled_at)
-        ? {
-            id: 1,
-            data_source_id: 1,
-            status: 'completed',
-            pages_found: 5,
-            pages_succeeded: 4,
-            drafts_created: 2,
-            average_quality_score: 8.5,
-            started_at: new Date(Date.now() - 3600000).toISOString(),
-            finished_at: new Date().toISOString(),
-          }
-        : null,
-    }
-  },
-
-  // --- 导出 ---
-  'GET /api/export/:format': async (_req, format) => ({
-    message: `导出格式 ${format} 已生成（Mock）`,
-    url: `/mock-exports/activities.${format}`,
-  }),
-
-  // --- 任务 ---
-  'POST /api/tasks': async () => ({ task_id: 'mock-task-' + Date.now(), status: 'pending' }),
-  'GET /api/tasks/:id': async () => ({ status: 'completed', result: 'mock result' }),
 }
 
-// ==================== 服务器 ====================
-
 const server = http.createServer(async (req, res) => {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     })
-    return res.end()
+    res.end()
+    return
   }
 
-  const url = req.url || '/'
   const method = req.method || 'GET'
+  const pathname = (req.url || '/').split('?')[0]
+  const key = `${method} ${pathname}`
+  const handler = routes[key]
 
-  // 尝试精确匹配
-  const exactKey = `${method} ${url.split('?')[0]}`
-  if (routes[exactKey]) {
-    try { return jsonResponse(res, await routes[exactKey](req)) }
-    catch (e) { return jsonResponse(res, { error: e.message }, 500) }
+  if (!handler) {
+    jsonResponse(res, { message: `Mock: ${key} not implemented` }, 404)
+    return
   }
 
-  // 尝试参数化匹配（含路径参数）
-  for (const [key, handler] of Object.entries(routes)) {
-    const [routeMethod, routePath] = key.split(' ')
-    if (routeMethod !== method) continue
-
-    const routeParts = routePath.split('/')
-    const pathname = url.split('?')[0]
-    const urlParts = pathname.split('/')
-
-    if (routeParts.length !== urlParts.length) continue
-
-    const params = {}
-    let match = true
-    for (let i = 0; i < routeParts.length; i++) {
-      if (routeParts[i].startsWith(':')) {
-        params[routeParts[i].slice(1)] = urlParts[i]
-      } else if (routeParts[i] !== urlParts[i]) {
-        match = false
-        break
-      }
-    }
-
-    if (match) {
-      // 处理 401 后缀特殊路由
-      const handlerKey = key.includes(' 401')
-        ? key
-        : `${method} ${routePath} 401`
-      if (handlerKey && routes[handlerKey]) {
-        // 带 token 校验的路由
-        if (!getToken(req)) {
-          return jsonResponse(res, await routes[handlerKey](req), 401)
-        }
-      }
-
-      try {
-        const data = await handler(req, params)
-        const status = key.endsWith(' 401') ? 401 : 200
-        return jsonResponse(res, data, status)
-      } catch (e) {
-        return jsonResponse(res, { error: e.message }, 500)
-      }
-    }
+  try {
+    const data = await handler(req)
+    const status = data?.message === 'invalid credentials' ? 401 : 200
+    jsonResponse(res, data, status)
+  } catch (error) {
+    jsonResponse(res, { message: error.message || 'mock server error' }, 500)
   }
-
-  // 404
-  jsonResponse(res, { message: `Mock: ${method} ${url} not implemented` }, 404)
 })
 
 server.listen(PORT, () => {
-  console.log(`\n  🎭 Mock API 服务器运行在 http://localhost:${PORT}`)
-  console.log(`  📋 支持的接口列表：`)
-  console.log(`     GET  /api/health`)
-  console.log(`     POST /api/auth/login (admin / admin123456, zhangsan / 123456)`)
-  console.log(`     POST /api/auth/register`)
-  console.log(`     POST /api/auth/send-code`)
-  console.log(`     GET  /api/auth/me`)
-  console.log(`     GET  /api/posters`)
-  console.log(`     GET  /api/posters/:id`)
-  console.log(`     POST /api/posters`)
-  console.log(`     PUT  /api/posters/:id`)
-  console.log(`     POST /api/posters/:id/review`)
-  console.log(`     POST /api/posters/:id/submit`)
-  console.log(`     GET  /api/knowledge/nodes`)
-  console.log(`     GET  /api/knowledge/nodes/:id`)
-  console.log(`     GET  /api/search`)
-  console.log(`     GET  /api/search/external`)
-  console.log(`     GET  /api/data-sources`)
-  console.log(`     POST /api/data-sources`)
-  console.log(`     GET  /api/dicts/:type`)
-  console.log(`     GET  /api/audit-logs`)
-  console.log(`     POST /api/ai/analyze`)
-  console.log(`     GET  /api/export/:format`)
-  console.log(`     POST /api/tasks`)
-  console.log(`     GET  /api/tasks/:id`)
-  console.log(`\n  🔗 Vite 开发服务器: http://localhost:3000`)
-  console.log(`  📌 请在另一个终端运行: npm run dev\n`)
+  console.log(`\n  Mock API server: http://localhost:${PORT}`)
+  console.log('  Supported endpoints:')
+  console.log('     GET  /api/health')
+  console.log('     POST /api/auth/login (admin/admin123456, zhangsan/123456)')
+  console.log('     POST /api/auth/register')
+  console.log('     POST /api/auth/send-code')
+  console.log('     GET  /api/auth/me')
+  console.log('     GET  /api/posters')
+  console.log('\n  Vite dev server: http://localhost:3000')
+  console.log('  Run in another terminal: npm run dev\n')
 })

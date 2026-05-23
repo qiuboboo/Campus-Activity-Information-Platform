@@ -6,13 +6,14 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string
+  token?: string
+  message?: string
   user: {
     id: number
     username: string
     role: string
     created_at: string
-  }
+  } | null
 }
 
 export function login(data: LoginRequest) {
