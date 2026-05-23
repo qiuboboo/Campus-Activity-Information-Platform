@@ -9,13 +9,13 @@ import FooterBar from '@/components/FooterBar.vue'
 
 const {
   auth, router,
-  hotPosters, activityTypeList, loading, searchKeyword,
+  hotActivities, recentActivities, activityTypeList, loading, searchKeyword,
   currentHotIndex, startHotCarousel,
   activeNav, selectNav,
   currentYear, currentMonth, selectedDate, weekDays,
   calendarDays, prevMonth, nextMonth, selectDate, scheduleItems,
-  selectedCategoryId, categoryPosters, fetchCategoryPosters, selectCategory,
-  fetchData, formatTime, goPosterDetail, handleSearch, handleLogout, currentYearLabel
+  selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
+  fetchData, formatTime, goActivityDetail, handleSearch, handleLogout, currentYearLabel
 } = useHomePage()
 </script>
 
@@ -49,33 +49,33 @@ const {
               <el-icon class="section-title-icon"><TrendCharts /></el-icon>
               热门活动
             </h2>
-            <el-button text class="section-more" @click="ElMessage.info('功能建设中')">
+            <el-button text class="section-more" @click="ElMessage.info('内容未实现！')">
               查看全部 <el-icon><ArrowRight /></el-icon>
             </el-button>
           </div>
-          <div v-if="hotPosters.length > 0" class="hot-carousel" @click="goPosterDetail(hotPosters[currentHotIndex].id)">
+          <div v-if="hotActivities.length > 0" class="hot-carousel" @click="goActivityDetail(hotActivities[currentHotIndex].id)">
             <div class="hc-card">
               <div class="hc-badge">
                 <el-tag
-                  :type="hotPosters[currentHotIndex].activity_type ? 'success' : 'info'"
+                  :type="hotActivities[currentHotIndex].activity_type ? 'success' : 'info'"
                   size="small" effect="plain" round
                 >
-                  {{ hotPosters[currentHotIndex].activity_type || '活动' }}
+                  {{ hotActivities[currentHotIndex].activity_type || '活动' }}
                 </el-tag>
               </div>
-              <h3 class="hc-title">{{ hotPosters[currentHotIndex].title }}</h3>
+              <h3 class="hc-title">{{ hotActivities[currentHotIndex].title }}</h3>
               <p class="hc-summary">
-                {{ hotPosters[currentHotIndex].summary || hotPosters[currentHotIndex].raw_text?.substring(0, 80) || '暂无简介' }}
+                {{ hotActivities[currentHotIndex].summary || hotActivities[currentHotIndex].raw_text?.substring(0, 80) || '暂无简介' }}
               </p>
               <div class="hc-meta">
-                <span><el-icon size="14"><User /></el-icon> {{ hotPosters[currentHotIndex].organizer || '未知' }}</span>
-                <span><el-icon size="14"><Clock /></el-icon> {{ formatTime(hotPosters[currentHotIndex].event_time) }}</span>
-                <span><el-icon size="14"><Location /></el-icon> {{ hotPosters[currentHotIndex].location || '待定' }}</span>
+                <span><el-icon size="14"><User /></el-icon> {{ hotActivities[currentHotIndex].organizer || '未知' }}</span>
+                <span><el-icon size="14"><Clock /></el-icon> {{ formatTime(hotActivities[currentHotIndex].event_time) }}</span>
+                <span><el-icon size="14"><Location /></el-icon> {{ hotActivities[currentHotIndex].location || '待定' }}</span>
               </div>
             </div>
-            <div class="hc-dots" v-if="hotPosters.length > 1">
+            <div class="hc-dots" v-if="hotActivities.length > 1">
               <span
-                v-for="(_, i) in hotPosters" :key="i"
+                v-for="(_, i) in hotActivities" :key="i"
                 class="hc-dot" :class="{ active: i === currentHotIndex }"
                 @click.stop="currentHotIndex = i; startHotCarousel()"
               ></span>
@@ -110,7 +110,7 @@ const {
                 </h2>
               </div>
               <div class="category-tabs">
-                <el-radio-group v-model="selectedCategoryId" @change="fetchCategoryPosters">
+                <el-radio-group v-model="selectedCategoryId" @change="fetchCategoryActivities">
                   <el-radio-button value="recent">最近</el-radio-button>
                   <el-radio-button v-for="cat in activityTypeList" :key="cat" :value="cat">
                     {{ cat }}
@@ -119,8 +119,8 @@ const {
               </div>
             </section>
             <div class="cat-scroll-body">
-              <div class="cat-poster-list" v-if="categoryPosters.length > 0">
-                <div v-for="p in categoryPosters" :key="p.id" class="cat-poster-item" @click="goPosterDetail(p.id)">
+              <div class="cat-activity-list" v-if="categoryActivities.length > 0">
+                <div v-for="p in categoryActivities" :key="p.id" class="cat-activity-item" @click="goActivityDetail(p.id)">
                   <div class="cpi-left">
                     <div class="cpi-title">{{ p.title }}</div>
                     <div class="cpi-meta">
@@ -135,11 +135,11 @@ const {
                   </div>
                 </div>
               </div>
-              <div v-else class="cat-poster-empty">
+              <div v-else class="cat-activity-empty">
                 <el-empty :image-size="80" description="该类别暂无活动" />
               </div>
             </div>
-            <section class="content-section" v-if="hotPosters.length === 0 && recentPosters.length === 0">
+            <section class="content-section" v-if="hotActivities.length === 0 && recentActivities.length === 0">
               <div class="empty-state">
                 <el-empty description="暂无活动数据，请稍后再来">
                   <el-button type="primary" @click="fetchData">刷新</el-button>
@@ -263,14 +263,14 @@ const {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.hot-carousel, .cat-poster-item { animation: card-in 0.5s ease-out both; }
+.hot-carousel, .cat-activity-item { animation: card-in 0.5s ease-out both; }
 .hot-carousel { animation-delay: 0s; }
-.cat-poster-item:nth-child(1) { animation-delay: 0.05s; }
-.cat-poster-item:nth-child(2) { animation-delay: 0.1s; }
-.cat-poster-item:nth-child(3) { animation-delay: 0.15s; }
-.cat-poster-item:nth-child(4) { animation-delay: 0.2s; }
-.cat-poster-item:nth-child(5) { animation-delay: 0.25s; }
-.cat-poster-item:nth-child(6) { animation-delay: 0.3s; }
+.cat-activity-item:nth-child(1) { animation-delay: 0.05s; }
+.cat-activity-item:nth-child(2) { animation-delay: 0.1s; }
+.cat-activity-item:nth-child(3) { animation-delay: 0.15s; }
+.cat-activity-item:nth-child(4) { animation-delay: 0.2s; }
+.cat-activity-item:nth-child(5) { animation-delay: 0.25s; }
+.cat-activity-item:nth-child(6) { animation-delay: 0.3s; }
 
 /* ---- 骨架屏 ---- */
 .skeleton-title {
@@ -367,9 +367,9 @@ const {
 .category-tabs :deep(.el-radio-group) { display: inline-flex; gap: 0; flex-wrap: nowrap; }
 .category-tabs :deep(.el-radio-button__inner) { font-size: 13px; padding: 8px 16px; border-color: #e8e8e8; }
 
-.cat-poster-list { display: flex; flex-direction: column; gap: 8px; }
+.cat-activity-list { display: flex; flex-direction: column; gap: 8px; }
 
-.cat-poster-item {
+.cat-activity-item {
   background: #fff; border-radius: 12px;
   padding: 16px 20px;
   display: flex; align-items: center; justify-content: space-between;
@@ -377,7 +377,7 @@ const {
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
 
-.cat-poster-item:hover { background: #f5fcf8; transform: translateX(4px); }
+.cat-activity-item:hover { background: #f5fcf8; transform: translateX(4px); }
 
 .cpi-left { flex: 1; min-width: 0; }
 
@@ -390,7 +390,7 @@ const {
 .cpi-meta { font-size: 12px; color: #909399; display: flex; gap: 16px; }
 .cpi-meta span { display: flex; align-items: center; gap: 4px; }
 .cpi-tag { flex-shrink: 0; margin-left: 12px; }
-.cat-poster-empty { padding: 24px 0; }
+.cat-activity-empty { padding: 24px 0; }
 
 .empty-state { background: #fff; border-radius: 14px; padding: 40px 0; }
 
@@ -420,7 +420,7 @@ const {
 @media (max-width: 480px) {
   .home-body { padding: 12px; }
   .category-tabs :deep(.el-radio-button__inner) { padding: 6px 12px; font-size: 12px; }
-  .cat-poster-item { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .cat-activity-item { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
   .cpi-tag { margin-left: 0; }
 }
 </style>

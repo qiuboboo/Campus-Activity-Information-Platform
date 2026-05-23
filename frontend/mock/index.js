@@ -8,7 +8,7 @@ import http from 'node:http'
 import { jsonResponse } from './utils.js'
 import healthRoute from './routes/health.js'
 import authRoutes from './routes/auth.js'
-import posterRoutes from './routes/poster.js'
+import activityRoutes from './routes/activity.js'
 import calendarRoutes from './routes/calendar.js'
 
 const PORT = 5000
@@ -19,9 +19,49 @@ function registerRoute(routeDef) {
   routes[key] = routeDef.handler
 }
 
+function matchRoute(method, pathname) {
+  const exactKey = `${method} ${pathname}`
+  if (routes[exactKey]) {
+    return { handler: routes[exactKey], params: {} }
+  }
+
+  for (const [key, handler] of Object.entries(routes)) {
+    const [routeMethod, routePath] = key.split(' ')
+    if (routeMethod !== method) continue
+
+    const routeParts = routePath.split('/').filter(Boolean)
+    const pathParts = pathname.split('/').filter(Boolean)
+    if (routeParts.length !== pathParts.length) continue
+
+    const params = {}
+    let matched = true
+
+    for (let i = 0; i < routeParts.length; i++) {
+      const routePart = routeParts[i]
+      const pathPart = pathParts[i]
+
+      if (routePart.startsWith(':')) {
+        params[routePart.slice(1)] = decodeURIComponent(pathPart)
+        continue
+      }
+
+      if (routePart !== pathPart) {
+        matched = false
+        break
+      }
+    }
+
+    if (matched) {
+      return { handler, params }
+    }
+  }
+
+  return null
+}
+
 registerRoute(healthRoute)
 authRoutes.forEach(registerRoute)
-posterRoutes.forEach(registerRoute)
+activityRoutes.forEach(registerRoute)
 calendarRoutes.forEach(registerRoute)
 
 const server = http.createServer(async (req, res) => {
@@ -38,8 +78,9 @@ const server = http.createServer(async (req, res) => {
 
   const method = req.method || 'GET'
   const pathname = (req.url || '/').split('?')[0]
+  const matchedRoute = matchRoute(method, pathname)
   const key = `${method} ${pathname}`
-  const handler = routes[key]
+  const handler = matchedRoute?.handler
 
   if (!handler) {
     jsonResponse(res, { message: `Mock: ${key} not implemented` }, 404)
@@ -47,8 +88,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    req.params = matchedRoute?.params || {}
     const data = await handler(req)
-    const status = data?.message === 'invalid credentials' ? 401 : 200
+    const status = data?.__status || (data?.message === 'invalid credentials' ? 401 : 200)
+    if (data && typeof data === 'object' && '__status' in data) {
+      const { __status, ...payload } = data
+      jsonResponse(res, payload, status)
+      return
+    }
     jsonResponse(res, data, status)
   } catch (error) {
     jsonResponse(res, { message: error.message || 'mock server error' }, 500)

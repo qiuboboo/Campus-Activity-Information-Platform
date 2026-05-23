@@ -20,6 +20,11 @@ const router = createRouter({
       component: () => import('@/views/auth/register/RegisterView.vue'),
     },
     {
+      path: '/activity/:id',
+      name: 'ActivityDetail',
+      component: () => import('@/views/activity/ActivityDetail.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'NotFound',
       component: () => import('@/views/error/NotFound.vue'),
