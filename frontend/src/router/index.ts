@@ -29,10 +29,16 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
-  const authPages = ['/auth/login', '/auth/register']
+  const publicPages = ['/auth/login', '/auth/register']
+  const requiresAuth = to.meta?.requiresAuth === true
 
-  if (auth.isLoggedIn && authPages.includes(to.path)) {
+  if (auth.isLoggedIn && publicPages.includes(to.path)) {
     next('/')
+    return
+  }
+
+  if (!auth.isLoggedIn && requiresAuth) {
+    next({ path: '/auth/login', query: { redirect: to.fullPath } })
     return
   }
 
