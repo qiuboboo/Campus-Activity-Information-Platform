@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue"
-import { useRouter } from "vue-router"
+import { computed, ref, reactive } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import { ElMessage } from "element-plus"
 import type { FormInstance, FormRules } from "element-plus"
@@ -8,7 +8,13 @@ import AuthLayout from "@/components/AuthLayout.vue"
 import { passwordRules } from "@/utils/authRules"
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
+
+const redirectTarget = computed(() => {
+  const value = route.query.redirect
+  return typeof value === 'string' && value.trim() ? value : ''
+})
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -46,7 +52,7 @@ async function handleLogin() {
     }
 
     ElMessage.success("登录成功")
-    router.replace("/")
+    router.replace(redirectTarget.value || "/")
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || ""
     if (msg.includes("invalid credentials")) {

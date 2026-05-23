@@ -2,16 +2,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
-import type { Poster } from '@/api/posters'
-import { listPosters } from '@/api/posters'
+import type { Activity } from '@/api/activities'
+import { listActivities } from '@/api/activities'
 import { getCalendarEvents } from '@/api/calendar'
 
 export function useHomePage() {
   const auth = useAuthStore()
   const router = useRouter()
 
-  const hotPosters = ref<Poster[]>([])
-  const recentPosters = ref<Poster[]>([])
+  const hotActivities = ref<Activity[]>([])
+  const recentActivities = ref<Activity[]>([])
   const activityTypeList = ['讲座', '晚会', '竞赛', '论坛', '展览', '招聘', '体育', '其他']
   const loading = ref(true)
   const searchKeyword = ref('')
@@ -22,9 +22,9 @@ export function useHomePage() {
 
   function startHotCarousel() {
     stopHotCarousel()
-    if (hotPosters.value.length < 2) return
+    if (hotActivities.value.length < 2) return
     hotTimer = setInterval(() => {
-      currentHotIndex.value = (currentHotIndex.value + 1) % hotPosters.value.length
+      currentHotIndex.value = (currentHotIndex.value + 1) % hotActivities.value.length
     }, 4000)
   }
 
@@ -45,7 +45,7 @@ export function useHomePage() {
         router.push('/auth/login')
         return
       }
-      ElMessage.info('功能建设中')
+      ElMessage.info('内容未实现！')
       return
     }
     const el = document.getElementById(`section-${key}`)
@@ -121,23 +121,23 @@ export function useHomePage() {
 
   // ---- 分类筛选 ----
   const selectedCategoryId = ref<string | null>('recent')
-  const categoryPosters = ref<Poster[]>([])
+  const categoryActivities = ref<Activity[]>([])
 
-  async function fetchCategoryPosters() {
+  async function fetchCategoryActivities() {
     if (!selectedCategoryId.value || selectedCategoryId.value === 'recent') {
-      categoryPosters.value = [...recentPosters.value].sort(
-        (a: Poster, b: Poster) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      categoryActivities.value = [...recentActivities.value].sort(
+        (a: Activity, b: Activity) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       )
       return
     }
-    categoryPosters.value = [...recentPosters.value]
+    categoryActivities.value = [...recentActivities.value]
       .filter(p => p.activity_type === selectedCategoryId.value)
-      .sort((a: Poster, b: Poster) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .sort((a: Activity, b: Activity) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 
   function selectCategory(id: string | null) {
     selectedCategoryId.value = id
-    fetchCategoryPosters()
+    fetchCategoryActivities()
   }
 
   // ---- 数据获取 ----
@@ -145,16 +145,16 @@ export function useHomePage() {
     loading.value = true
     try {
       const [hotRes, recentRes] = await Promise.all([
-        listPosters({ status: 'published', per_page: 6 }),
-        listPosters({ per_page: 6 }),
+        listActivities({ status: 'published', per_page: 6 }),
+        listActivities({ per_page: 6 }),
       ])
-      hotPosters.value = (hotRes.data?.items || []).sort(
-        (a: Poster, b: Poster) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      hotActivities.value = (hotRes.data?.items || []).sort(
+        (a: Activity, b: Activity) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       )
-      recentPosters.value = (recentRes.data?.items || []).sort(
-        (a: Poster, b: Poster) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      recentActivities.value = (recentRes.data?.items || []).sort(
+        (a: Activity, b: Activity) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       )
-      categoryPosters.value = recentPosters.value
+      categoryActivities.value = recentActivities.value
     } catch { /* handled by interceptor */ }
     finally { loading.value = false }
   }
@@ -170,20 +170,20 @@ export function useHomePage() {
     return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
   }
 
-  function goPosterDetail(id: number) {
-    ElMessage.info('功能建设中')
+  function goActivityDetail(id: number) {
+    router.push({ path: `/activity/${id}`, query: { source: 'home' } })
   }
 
   function handleSearch() {
     const q = searchKeyword.value.trim()
-    if (q) ElMessage.info('搜索功能建设中')
+    if (q) ElMessage.info('内容未实现！')
   }
 
   function handleLogout() { auth.logout(); router.push('/') }
 
   const currentYearLabel = new Date().getFullYear()
 
-  watch(hotPosters, (val) => {
+  watch(hotActivities, (val) => {
     currentHotIndex.value = 0
     if (val.length > 0) startHotCarousel()
     else stopHotCarousel()
@@ -196,12 +196,12 @@ export function useHomePage() {
 
   return {
     auth, router,
-    hotPosters, recentPosters, activityTypeList, loading, searchKeyword,
+    hotActivities, recentActivities, activityTypeList, loading, searchKeyword,
     currentHotIndex, startHotCarousel, stopHotCarousel,
     activeNav, selectNav,
     currentYear, currentMonth, selectedDate, weekDays,
     calendarDays, prevMonth, nextMonth, selectDate, scheduleItems,
-    selectedCategoryId, categoryPosters, fetchCategoryPosters, selectCategory,
-    fetchData, fetchSchedule, formatTime, formatDate, goPosterDetail, handleSearch, handleLogout, currentYearLabel,
+    selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
+    fetchData, fetchSchedule, formatTime, formatDate, goActivityDetail, handleSearch, handleLogout, currentYearLabel,
   }
 }

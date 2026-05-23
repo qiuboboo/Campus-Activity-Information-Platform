@@ -5,6 +5,7 @@
 export const DEMO_USER = {
   id: 1,
   username: 'admin',
+  email: 'admin@example.com',
   role: 'admin',
   created_at: '2026-01-01T00:00:00',
 }
@@ -12,6 +13,7 @@ export const DEMO_USER = {
 export const REGULAR_USER = {
   id: 2,
   username: 'zhangsan',
+  email: 'zhangsan@example.com',
   role: 'publisher',
   created_at: '2026-03-15T00:00:00',
 }
@@ -23,7 +25,7 @@ export function getNextUserId() {
   return _nextUserId++
 }
 
-export const POSTERS = [
+export const ACTIVITIES = [
   // ---- 已发布（published） ----
   {
     id: 1,
@@ -155,5 +157,5 @@ export function resetDb() {
   Object.keys(VERIFICATION_CODES).forEach((k) => delete VERIFICATION_CODES[k])
   Object.keys(REGISTERED_USERS).forEach((k) => delete REGISTERED_USERS[k])
   _nextUserId = 3
-  POSTERS.length = 0
+  ACTIVITIES.length = 0
 }

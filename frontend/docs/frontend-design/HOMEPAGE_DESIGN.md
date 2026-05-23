@@ -28,11 +28,11 @@ src/
 - 中间：`SearchBar` 组件
 - 右侧：未登录显示"登录"按钮，已登录显示用户名 + "退出登录"按钮
 - 所有按钮为绿色渐变 `.nav-cta` 样式
-- 未开放入口（搜索提交、我的活动、创建活动）弹出"功能建设中"
+- 未开放入口（搜索提交、我的活动、创建活动）弹出"内容未实现！"
 
 ### 左侧导航（`NavSidebar.vue`）
 - 栏目：全部活动、热门推荐、按类别、我的活动、创建活动
-- 点击"我的活动"/"创建活动" → 未登录跳登录页，已登录提示"功能建设中"
+- 点击"我的活动"/"创建活动" → 未登录跳登录页，已登录提示"内容未实现！"
 - 其余通过 `scrollIntoView` 滚动
 - 分隔线下：分类快捷入口（前 6 种类型）
 - ≤768px 隐藏
@@ -42,13 +42,13 @@ src/
 **上方：热门活动轮播**
 - 自动 4 秒轮播，带指示点
 - 显示：类型标签、标题、摘要、主办方、时间、地点
-- 数据：`listPosters({ status: 'published', per_page: 6 })`
-- 点击卡片提示"功能建设中"
+ - 数据：`listActivities({ status: 'published', per_page: 6 })`
+- 点击卡片提示"内容未实现！"
 
 **下方：分类活动列表**
 - `el-radio-group` 标签："最近" + 8 种活动类型
 - 按 `created_at` 降序排列
-- 选中类型时从 `recentPosters` 中按 `activity_type` 过滤
+ - 选中类型时从 `recentActivities` 中按 `activity_type` 过滤
 - 无数据时显示 `el-empty`
 
 ### 右侧辅助栏（`HomeCalendarCard.vue`）
@@ -60,7 +60,7 @@ src/
 - `height: 60px`，黑色背景
 - 品牌名 + 英文副标题
 - 版权信息
-- 类别切换：点击标签后局部刷新下方活动列表（`fetchCategoryPosters`）
+ - 类别切换：点击标签后局部刷新下方活动列表（`fetchCategoryActivities`）
 - 日历：选择日期联动展示该日日程
 - 响应式：
   - ≤1024px：右侧辅助栏隐藏
@@ -77,16 +77,16 @@ src/
 ## API 与数据交互
 | 用途 | 接口 |
 |------|------|
-| 搜索 | GET `/api/posters?query=...&category=...&date=...&page=...` |
-| 热门活动 | GET `/api/posters?status=published&per_page=6` |
-| 最近/分类活动 | GET `/api/posters?per_page=6`（前端过滤+排序） |
+| 搜索 | GET `/api/activities?query=...&category=...&date=...&page=...` |
+| 热门活动 | GET `/api/activities?status=published&per_page=6` |
+| 最近/分类活动 | GET `/api/activities?per_page=6`（前端过滤+排序） |
 | 日历/日程 | GET `/api/calendar?user_id=...&month=YYYY-MM` |
-| 详情/报名 | GET `/api/posters/:id`、POST `/api/posters/:id/register` |
+| 详情/报名 | GET `/api/activities/:id`、POST `/api/activities/:id/register` |
 
 ---
 
 ## Mock 数据说明（`frontend/mock-server.js`）
-- 每条 POSTERS 记录需包含 `activity_type` 字段，值为后端支持的 8 种类型之一
+ - 每条 ACTIVITIES 记录需包含 `activity_type` 字段，值为后端支持的 8 种类型之一
 - 示例：
   ```js
   { id: 1, title: '校园科技文化节开幕式', activity_type: '其他', ... }
@@ -181,11 +181,11 @@ src/
   - 说明：遵循项目约定，页面以单个 `.vue` 文件为主；仅在复用或复杂时拆分子组件到 `frontend/src/components`。
 
 API 与数据交互
-- 搜索：GET `/api/posters?query=...&category=...&date=...&page=...`
-- 热门：GET `/api/posters?sort=hot&limit=...`
+- 搜索：GET `/api/activities?query=...&category=...&date=...&page=...`
+- 热门：GET `/api/activities?sort=hot&limit=...`
 - 类别列表：从前端已有活动数据中提取 `activity_type` 去重获得（如志愿类、竞赛类、讲座类等），无需额外 API 请求
 - 日历/日程：GET `/api/calendar?user_id=...&month=YYYY-MM`
-- 事件详情与报名：GET `/api/posters/:id`、POST `/api/posters/:id/register`
+ - 事件详情与报名：GET `/api/activities/:id`、POST `/api/activities/:id/register`
 
 实现要点（工程与 UX）
 - 首屏优化：将顶部与热门卡片作为首屏关键渲染块，延迟次要模块加载
