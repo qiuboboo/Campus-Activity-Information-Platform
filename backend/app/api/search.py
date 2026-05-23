@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import or_
 
 from ..models import KnowledgeNode, Poster
-
+import time
 
 search_bp = Blueprint("search", __name__)
 
@@ -40,8 +40,12 @@ def _parse_sort_params() -> tuple[str, str]:
 @search_bp.get("/internal")
 @jwt_required()
 def internal_search():
+    t0 = time.time()
     keyword = (request.args.get("q") or "").strip()
     if not keyword:
+        from ..utils.search_logger import log_search
+
+        log_search("internal", keyword, 0, 0, {}, "none")
         return jsonify({"items": [], "query": keyword})
 
     sort, order = _parse_sort_params()
@@ -119,6 +123,21 @@ def internal_search():
 
     items = [{"hit_type": "poster", "item": poster.to_dict()} for poster in posters]
     items.extend({"hit_type": "knowledge_node", "item": node.to_dict()} for node in nodes)
+
+    latency_ms = (time.time() - t0) * 1000
+    from ..utils.search_logger import log_search
+
+    result_types = {"poster": len(posters), "knowledge_node": len(nodes)}
+    log_search(
+        endpoint="internal",
+        query=keyword,
+        latency_ms=latency_ms,
+        hit_count=len(items),
+        result_types=result_types,
+        search_mode="vector" if use_vector else "fulltext",
+        sort=sort,
+        order=order,
+    )
     return jsonify({
         "items": items,
         "query": keyword,
@@ -145,6 +164,7 @@ def external_search():
     For advanced parameters (sources, etc.), use ``POST /api/ai/search``.
     Pass ?sources=web,sogou,llm to specify which sources to query.
     """
+    t0 = time.time()
     query = (request.args.get("q") or "").strip()
     if not query:
         return jsonify({"error": "query parameter 'q' is required"}), 400
@@ -156,6 +176,24 @@ def external_search():
     from ..services.ai_service import search_external
 
     result = search_external(query, sources=sources)
+
+    latency_ms = (time.time() - t0) * 1000
+    from ..utils.search_logger import log_search
+
+    source_counts: dict[str, int] = {}
+    for r in result["results"]:
+        src = r.get("source", "unknown")
+        source_counts[src] = source_counts.get(src, 0) + 1
+
+    log_search(
+        endpoint="external",
+        query=query,
+        latency_ms=latency_ms,
+        hit_count=len(result["results"]),
+        result_types=source_counts,
+        search_mode="multi",
+        error=result.get("error"),
+    )
     return jsonify({
         "query": query,
         "results": result["results"],
