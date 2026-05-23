@@ -110,6 +110,16 @@ def update_data_source(
     return ds
 
 
+def delete_data_source(data_source_id: int) -> bool:
+    """Delete a data source and its associated crawl logs."""
+    ds = get_data_source(data_source_id)
+    if ds is None:
+        return False
+    db.session.delete(ds)
+    db.session.commit()
+    return True
+
+
 def set_enabled(data_source_id: int, enabled: bool) -> DataSource | None:
     ds = get_data_source(data_source_id)
     if ds is None:

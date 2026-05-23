@@ -13,6 +13,7 @@ from .api.data_sources import data_sources_bp
 from .api.dicts import dicts_bp
 from .api.export import export_bp
 from .api.health import health_bp
+from .api.home import home_bp
 from .api.knowledge import knowledge_bp
 from .api.posters import posters_bp
 from .api.search import search_bp
@@ -100,6 +101,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
 
     app.register_blueprint(ai_bp, url_prefix="/api")
     app.register_blueprint(health_bp, url_prefix="/api")
+    app.register_blueprint(home_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(posters_bp, url_prefix="/api/posters")
     app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")

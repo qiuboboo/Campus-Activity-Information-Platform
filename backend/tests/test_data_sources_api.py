@@ -86,3 +86,36 @@ class TestDataSourceLogs:
         )
         assert resp.status_code == 200
         assert "items" in resp.get_json()
+
+
+class TestDeleteDataSource:
+    def test_deletes_source(self, client, admin_headers, sample_data_source):
+        resp = client.delete(
+            f"/api/data-sources/{sample_data_source.id}",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+
+        # Verify it's gone
+        resp2 = client.get(
+            f"/api/data-sources/{sample_data_source.id}",
+            headers=admin_headers,
+        )
+        assert resp2.status_code == 404
+
+    def test_returns_404(self, client, admin_headers):
+        resp = client.delete("/api/data-sources/99999", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_requires_admin(self, client, viewer_headers, sample_data_source):
+        resp = client.delete(
+            f"/api/data-sources/{sample_data_source.id}",
+            headers=viewer_headers,
+        )
+        assert resp.status_code == 403
+
+    def test_requires_auth(self, client, sample_data_source):
+        resp = client.delete(f"/api/data-sources/{sample_data_source.id}")
+        assert resp.status_code == 401

@@ -6,6 +6,7 @@ from ..services.crawler_service import crawl_mcp_source as sync_mcp_crawl
 from ..services.data_source_service import (
     create_crawl_log,
     create_data_source,
+    delete_data_source,
     finish_crawl_log,
     get_crawl_logs,
     get_data_source,
@@ -95,6 +96,14 @@ def update(source_id: int):
         return jsonify({"error": str(e)}), 400
 
     return jsonify(ds.to_dict())
+
+
+@data_sources_bp.route("/data-sources/<int:source_id>", methods=["DELETE"])
+@roles_required("admin")
+def delete(source_id: int):
+    if not delete_data_source(source_id):
+        return jsonify({"error": "Data source not found"}), 404
+    return jsonify({"success": True, "message": "Data source deleted"}), 200
 
 
 @data_sources_bp.route("/data-sources/<int:source_id>/crawl", methods=["POST"])

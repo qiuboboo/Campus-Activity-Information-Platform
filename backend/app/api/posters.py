@@ -181,7 +181,6 @@ def review_poster(poster_id: int):
 def review_queue():
     status_filter = (request.args.get("status") or "").strip()
     source_type = (request.args.get("source_type") or "").strip()
-    data_source_id = request.args.get("data_source_id", type=int)
     duplicate_group_key = (request.args.get("duplicate_group_key") or "").strip()
     sort_by = (request.args.get("sort_by") or "-created_at").strip()
     page = max(int(request.args.get("page", 1)), 1)
@@ -196,8 +195,6 @@ def review_queue():
 
     if source_type:
         query = query.filter_by(source_type=source_type)
-    if data_source_id is not None:
-        query = query.filter(Poster.created_by == data_source_id)
     if duplicate_group_key:
         query = query.filter_by(duplicate_group_key=duplicate_group_key)
 

@@ -153,6 +153,15 @@ class TestReviewQueue:
         resp = client.get("/api/posters/review-queue", headers=publisher_headers)
         assert resp.status_code == 403
 
+    def test_data_source_id_param_ignored(self, client, admin_headers, sample_poster):
+        """Regression: data_source_id was removed from review_queue."""
+        resp = client.get(
+            "/api/posters/review-queue?data_source_id=1",
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        # Should work without error, data_source_id param is simply ignored
+
 
 class TestBulkReview:
     def test_bulk_approve(self, client, admin_headers, sample_poster):
