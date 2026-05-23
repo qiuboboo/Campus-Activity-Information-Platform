@@ -1,0 +1,45 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check (vue-tsc)
+        run: npx vue-tsc -b
+
+      - name: Build (vite)
+        run: npm run build
+
+      - name: Smoke test — mock server
+        run: |
+          node mock/index.js &
+          MOCK_PID=$!
+          sleep 2
+          curl -sf http://localhost:5000/api/health > /dev/null && echo "Mock OK" || echo "Mock FAILED"
+          kill $MOCK_PID 2>/dev/null || true

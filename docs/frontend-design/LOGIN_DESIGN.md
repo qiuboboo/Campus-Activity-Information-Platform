@@ -1,63 +1,42 @@
-# 登录页面设计思路
+# 登录页面
 
-本文件为登录页的设计思路与 TODO 列表，供前端实现与 UI 参考。
+## 概述
 
-## 目标
-- 简洁、明确的登录流程，支持账号密码和邮箱验证码两种登录方式
-- 响应式布局：移动优先，桌面卡片或两栏展示
-- 强调安全性：密码与验证码策略、错误反馈清晰
-- 可复用组件：`AuthCard`、`AuthForm`、`CaptchaInput`、`PasswordInput`
+- 路径：`/auth/login`
+- 文件：`frontend/src/views/auth/login/LoginView.vue`（~85 行）
+- 功能：用户名/邮箱 + 密码登录，支持记住用户名
 
-## 页面结构
-- 顶部：品牌 logo + 返回首页链接
-- 主体（卡片）
-  - 切换标签：`账号密码登录` / `邮箱验证码登录`
-  - `账号密码登录`：用户名/邮箱输入 + 密码输入 + `记住我` + 忘记密码链接
-  - `邮箱验证码登录`：邮箱输入 + 验证码输入（含获取验证码按钮）
-  - 登录按钮（主色），次要：OAuth 或其他方式
-  - 底部：注册引导（“还没有账户？注册”）
+## 组件结构
 
-## 交互与验证
-- 获取验证码后按钮禁用并显示倒计时（默认 60s）
-- 密码长度与复杂度提示（登录时提示，注册时强制校验）
-- 登录失败次数限制提示（后端返回锁定/429 时展示）
-- 登录成功后根据 `redirect` 参数或默认跳转到 `dashboard`
+```
+src/
+  utils/authRules.ts               ← 共享密码验证规则
+  components/
+    AuthLayout.vue                 ← 认证页公共布局（背景 + 标题 + 半透明卡片）
+    AuthBackground.vue             ← 背景图 + 遮罩层
+    AuthHeader.vue                 ← 返回按钮 + 品牌标题
+  views/auth/login/LoginView.vue   ← 登录表单
+```
 
-## 无障碍与可访问性
-- 使用 `label` 与 `for`、支持键盘导航与回车提交
-- 错误信息通过 `aria-describedby` 指向
+## 实现细节
 
-## 前端验证规则
-- 邮箱：格式校验
-- 密码：最小 8 位（提示强度）
-- 验证码：6 位数字
+- 表单验证通过 `rules` + `formRef.value?.validate()` 完成，不额外写手动校验
+- 密码规则从 `authRules.ts` 共享
+- 提交成功 → `router.replace('/')`，不保留登录页历史
+- 记住用户名 → `localStorage.setItem('remembered_user')`
+- 错误处理：invalid credentials → "用户名或密码错误"；网络失败 → "网络连接失败"
+- "忘记密码"链接 → 跳转 `/auth/forgot-password`（当前 404，待实现）
+- "去注册"链接 → `/auth/register`
 
-## 测试点
-- 验证码流程：发送、接收、超时、错误
-- 错误展示：网络失败、凭证错误、锁定提示
-- 移动端适配与键盘输入体验
+## 验证规则
 
-## API 参考（前端示例）
-- 登录（账号密码）：POST `/api/auth/login` { username, password }
-- 登录（验证码）：POST `/api/auth/login` { email, code }
-- 发送验证码：POST `/api/auth/send-code` { email }
+| 字段 | 规则 |
+|------|------|
+| 用户名/邮箱 | 必填，2-50 字符 |
+| 密码 | 必填，最少 6 字符（共享自 `authRules.ts`） |
 
+## 路由守卫
 
-## TODO 列表（实现任务）
-- [x] 设计并实现 `AuthLayout` 与 `AuthCard` 组件
-- [x] 实现 `AuthForm`：支持 `mode = 'password' | 'captcha'` 切换
-- [x] 实现 `PasswordInput`（显示/隐藏、强度提示）
-- [x] 实现 `CaptchaInput`（获取验证码、倒计时、节流）
-- [x] 与后端对接：实现 `send-code`、`login` 接口调用与错误处理
-- [x] 前端验证：邮箱/密码/验证码规则与即时反馈
-- [x] 可访问性：`label`、`aria-describedby`、键盘导航测试
-- [x] 响应式：移动/平板/桌面适配与视觉检查
-- [x] 编写单元测试与集成测试（表单校验、API 成功/失败场景）
-- [x] 添加 e2e 或手动测试用例说明（验证码流程、登录跳转）
-
-文件结束。
-
-## 实现约定
-
-- 页面实现采用单文件组件（Single File Component）：每个页面以一个完整的 `.vue` 文件实现，包含模板、脚本与样式，便于页面级别维护与路由管理。
-- 仅在确有复用价值或组件复杂度较高时，将部分 UI/逻辑拆出到 `frontend/src/components` 中作为子组件；否则保留在单文件内以降低项目文件数量和认知成本。
+- 已登录用户访问登录页 → 自动跳转首页 `/`
+- 登录成功 → `router.replace('/')`
+- 支持 `?redirect=` 参数（由路由守卫注入），当前版本登录后未使用该参数
