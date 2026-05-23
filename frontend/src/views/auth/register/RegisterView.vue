@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import { registerWithEmail, sendVerificationCode } from "@/api/auth";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
+import AuthLayout from "@/components/AuthLayout.vue"
+import { passwordRules } from "@/utils/authRules"
 
 const router = useRouter();
 
@@ -37,10 +39,7 @@ const rules: FormRules = {
     { required: true, message: "请输入验证码", trigger: "blur" },
     { len: 6, message: "验证码为 6 位数字", trigger: "blur" },
   ],
-  password: [
-    { required: true, message: "请输入密码", trigger: "blur" },
-    { min: 6, message: "密码至少 6 个字符", trigger: "blur" },
-  ],
+  password: passwordRules,
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },
     {
@@ -57,10 +56,8 @@ const rules: FormRules = {
 };
 
 async function handleSendCode() {
-  if (!form.email || !form.email.includes("@")) {
-    ElMessage.warning("请输入有效的邮箱地址");
-    return;
-  }
+  const valid = await formRef.value?.validateField('email').catch(() => false)
+  if (!valid) return
   sendingCode.value = true;
   try {
     const res = await sendVerificationCode(form.email);
@@ -92,30 +89,8 @@ function startCountdown() {
 }
 
 async function handleRegister() {
-  if (!form.username.trim()) {
-    ElMessage.warning("请输入用户名");
-    return;
-  }
-  if (!form.email) {
-    ElMessage.warning("请输入邮箱");
-    return;
-  }
-  if (!form.verificationCode) {
-    ElMessage.warning("请输入验证码");
-    return;
-  }
-  if (!form.password) {
-    ElMessage.warning("请输入密码");
-    return;
-  }
-  if (form.password.length < 6) {
-    ElMessage.warning("密码至少 6 个字符");
-    return;
-  }
-  if (form.password !== form.confirmPassword) {
-    ElMessage.warning("两次输入的密码不一致");
-    return;
-  }
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
 
   loading.value = true;
   try {
@@ -147,355 +122,134 @@ async function handleRegister() {
   }
 }
 
-function goHome() {
-  router.push("/");
-}
 </script>
 
 <template>
-  <div class="register-wrapper">
-    <div class="register-bg"></div>
-    <div class="register-overlay"></div>
+  <AuthLayout>
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      @submit.prevent="handleRegister"
+      label-position="top"
+      class="auth-form"
+    >
+      <h2 style="text-align:center;margin-bottom:16px;color:#303133;font-size:22px">
+        用户注册
+      </h2>
 
-    <div class="back-home">
-      <el-button @click="goHome" class="back-home-btn">返回首页</el-button>
-    </div>
-
-    <div class="top-center-title">
-      <h1>逸仙活动云</h1>
-      <p class="en-subtitle">Sun Yat-sen University Activity Cloud Platform</p>
-    </div>
-
-    <div class="half-transparent-card">
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        @submit.prevent="handleRegister"
-        label-position="top"
-        class="register-form"
-      >
-        <h2
-          style="
-            text-align: center;
-            margin-bottom: 16px;
-            color: #303133;
-            font-size: 22px;
-          "
-        >
-          用户注册
-        </h2>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="用户名" prop="username">
-              <el-input
-                v-model="form.username"
-                placeholder="请输入用户名"
-                size="large"
-                :prefix-icon="'User'"
-                clearable
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="邮箱" prop="email">
-              <el-input
-                v-model="form.email"
-                placeholder="请输入邮箱地址"
-                size="large"
-                :prefix-icon="'Message'"
-                clearable
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="密码" prop="password">
-              <el-input
-                v-model="form.password"
-                :type="showPwd ? 'text' : 'password'"
-                placeholder="至少 6 个字符"
-                size="large"
-                :prefix-icon="'Lock'"
-              >
-                <template #suffix>
-                  <el-icon class="pwd-toggle" @click="showPwd = !showPwd">
-                    <component :is="showPwd ? 'View' : 'Hide'" />
-                  </el-icon>
-                </template>
-              </el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="确认密码" prop="confirmPassword">
-              <el-input
-                v-model="form.confirmPassword"
-                :type="showConfirmPwd ? 'text' : 'password'"
-                placeholder="再次输入密码"
-                size="large"
-                :prefix-icon="'Lock'"
-              >
-                <template #suffix>
-                  <el-icon
-                    class="pwd-toggle"
-                    @click="showConfirmPwd = !showConfirmPwd"
-                  >
-                    <component :is="showConfirmPwd ? 'View' : 'Hide'" />
-                  </el-icon>
-                </template>
-              </el-input>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item label="验证码" prop="verificationCode">
-          <div style="display: flex; gap: 8px; width: 100%">
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-form-item label="用户名" prop="username">
             <el-input
-              v-model="form.verificationCode"
-              placeholder="6 位验证码"
+              v-model="form.username"
+              placeholder="请输入用户名"
               size="large"
-              maxlength="6"
-              style="flex: 1"
+              :prefix-icon="'User'"
+              clearable
             />
-            <el-button
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="邮箱" prop="email">
+            <el-input
+              v-model="form.email"
+              placeholder="请输入邮箱地址"
               size="large"
-              :disabled="countdown > 0 || sendingCode"
-              :loading="sendingCode"
-              class="code-btn"
-              @click="handleSendCode"
-            >
-              {{ countdown > 0 ? `${countdown}s 后重新发送` : "获取验证码" }}
-            </el-button>
-          </div>
-        </el-form-item>
+              :prefix-icon="'Message'"
+              clearable
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
 
-        <div style="text-align: center; margin: 8px 0 12px">
-          <span style="font-size: 14px; color: rgba(26, 26, 46, 0.45)">
-            已有账号？
-            <router-link
-              to="/auth/login"
-              style="color: #0b7d5b; font-weight: 500"
-              >去登录</router-link
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-form-item label="密码" prop="password">
+            <el-input
+              v-model="form.password"
+              :type="showPwd ? 'text' : 'password'"
+              placeholder="至少 6 个字符"
+              size="large"
+              :prefix-icon="'Lock'"
             >
-          </span>
-        </div>
+              <template #suffix>
+                <el-icon class="pwd-toggle" @click="showPwd = !showPwd">
+                  <component :is="showPwd ? 'View' : 'Hide'" />
+                </el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="form.confirmPassword"
+              :type="showConfirmPwd ? 'text' : 'password'"
+              placeholder="再次输入密码"
+              size="large"
+              :prefix-icon="'Lock'"
+            >
+              <template #suffix>
+                <el-icon class="pwd-toggle" @click="showConfirmPwd = !showConfirmPwd">
+                  <component :is="showConfirmPwd ? 'View' : 'Hide'" />
+                </el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+        </el-col>
+      </el-row>
 
-        <el-form-item>
-          <el-button
-            type="primary"
-            :loading="loading"
+      <el-form-item label="验证码" prop="verificationCode">
+        <div style="display:flex;gap:8px;width:100%">
+          <el-input
+            v-model="form.verificationCode"
+            placeholder="6 位验证码"
             size="large"
-            class="register-btn"
-            @click="handleRegister"
+            maxlength="6"
+            style="flex:1"
+          />
+          <el-button
+            size="large"
+            :disabled="countdown > 0 || sendingCode"
+            :loading="sendingCode"
+            class="code-btn"
+            @click="handleSendCode"
           >
-            {{ loading ? "注册中..." : "注 册" }}
+            {{ countdown > 0 ? `${countdown}s 后重新发送` : "获取验证码" }}
           </el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-  </div>
+        </div>
+      </el-form-item>
+
+      <div style="text-align:center;margin:8px 0 12px">
+        <span style="font-size:14px;color:rgba(26,26,46,0.45)">
+          已有账号？
+          <router-link to="/auth/login" style="color:#0b7d5b;font-weight:500">
+            去登录
+          </router-link>
+        </span>
+      </div>
+
+      <el-form-item>
+        <el-button
+          type="primary"
+          :loading="loading"
+          size="large"
+          class="auth-submit-btn"
+          @click="handleRegister"
+        >
+          {{ loading ? "注册中..." : "注 册" }}
+        </el-button>
+      </el-form-item>
+    </el-form>
+  </AuthLayout>
 </template>
 
 <style scoped>
-.register-wrapper {
-  height: 100vh;
-  width: 100vw;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-  padding-top: 40px;
-}
-.register-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: url("@/assets/huaishitang.jpg") center / cover no-repeat;
-}
-.register-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.45) 0%,
-    rgba(0, 0, 0, 0.25) 50%,
-    rgba(0, 0, 0, 0.4) 100%
-  );
-}
-.back-home {
-  position: absolute;
-  top: 20px;
-  left: 24px;
-  z-index: 3;
-}
-.back-home-btn {
-  color: rgba(255, 255, 255, 0.85) !important;
-  font-size: 16px;
-  background: transparent !important;
-}
-.back-home-btn:hover {
-  background: transparent !important;
-}
-.top-center-title {
-  position: absolute;
-  top: 48px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  text-align: center;
-}
-.top-center-title h1 {
-  font-size: 64px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.88);
-  letter-spacing: 4px;
-  margin: 0;
-  text-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.6),
-    0 2px 4px rgba(0, 0, 0, 0.4);
-}
-.en-subtitle {
-  font-size: 24px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.75);
-  letter-spacing: 1px;
-  margin: 6px 0 0 2px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-.half-transparent-card {
-  position: relative;
-  z-index: 2;
-  width: min(600px, 92vw);
-  padding: 28px 32px 24px;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    0 24px 60px rgba(0, 0, 0, 0.08),
-    0 1px 3px rgba(0, 0, 0, 0.05);
-  animation: card-enter 0.8s ease-out;
-}
-@keyframes card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.register-form {
-  width: 100%;
-}
-.register-form :deep(.el-form-item) {
-  margin-bottom: 12px;
-}
-.register-form :deep(.el-form-item__label) {
-  color: rgba(26, 26, 46, 0.65);
-  font-size: 13px;
-  font-weight: 500;
-  padding-bottom: 4px;
-}
-.register-form :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(26, 26, 46, 0.1);
-  border-radius: 10px;
-  box-shadow: none;
-  transition: all 0.25s ease;
-}
-.register-form :deep(.el-input__wrapper:hover) {
-  border-color: rgba(11, 125, 91, 0.4);
-  background: rgba(255, 255, 255, 0.9);
-}
-.register-form :deep(.el-input__wrapper.is-focus) {
-  border-color: #0b7d5b;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(11, 125, 91, 0.15);
-}
-.register-form :deep(.el-input__inner) {
-  color: #1a1a2e;
-}
-.register-form :deep(.el-input__inner::placeholder) {
-  color: rgba(26, 26, 46, 0.3);
-}
-.register-form :deep(.el-input__prefix) {
-  color: rgba(26, 26, 46, 0.35);
-}
-.register-form :deep(.pwd-toggle) {
-  font-size: 22px;
-  color: rgba(26, 26, 46, 0.35);
-  cursor: pointer;
-  border-radius: 6px;
-  padding: 4px;
-  transition: all 0.2s ease;
-}
-.register-form :deep(.pwd-toggle:hover) {
-  color: #0b7d5b;
-  background: rgba(11, 125, 91, 0.08);
-}
-.register-btn {
-  width: 100%;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0b7d5b, #1bbf7a);
-  border: none;
-  transition: all 0.3s ease;
-}
-.register-btn:hover {
-  background: linear-gradient(135deg, #0ea36f, #22c98a);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(11, 125, 91, 0.35);
-}
 .code-btn {
   height: 40px;
   font-size: 13px;
   border-radius: 8px;
   white-space: nowrap;
-}
-@media (max-width: 768px) {
-  .top-center-title {
-    top: 24px;
-  }
-  .top-center-title h1 {
-    font-size: 36px;
-    letter-spacing: 2px;
-  }
-  .en-subtitle {
-    font-size: 14px;
-    margin-top: 4px;
-  }
-  .half-transparent-card {
-    padding: 20px 18px 18px;
-    width: 94vw;
-  }
-  .el-row :deep(.el-col) {
-    width: 100% !important;
-  }
-}
-@media (max-width: 480px) {
-  .back-home {
-    top: 12px;
-    left: 12px;
-  }
-  .top-center-title h1 {
-    font-size: 28px;
-  }
-  .half-transparent-card {
-    padding: 24px 18px 20px;
-  }
-  .register-btn {
-    height: 44px;
-    font-size: 15px;
-  }
 }
 </style>
