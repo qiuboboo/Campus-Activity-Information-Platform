@@ -9,6 +9,13 @@ search_bp = Blueprint("search", __name__)
 
 _EMBEDDING_ENABLED = False  # flipped by _check_embedding() at runtime
 
+_SORT_OPTIONS = {
+    "relevance": None,  # handled specially
+    "created_at": Poster.created_at,
+    "title": Poster.title,
+    "event_time": Poster.event_time,
+}
+
 
 def _check_embedding():
     """Check whether embedding/vector search is available at runtime."""
@@ -19,6 +26,17 @@ def _check_embedding():
         _EMBEDDING_ENABLED = False
 
 
+def _parse_sort_params() -> tuple[str, str]:
+    """Parse and validate sort / order query parameters."""
+    sort = (request.args.get("sort") or "relevance").strip().lower()
+    if sort not in _SORT_OPTIONS:
+        sort = "relevance"
+    order = (request.args.get("order") or "desc").strip().lower()
+    if order not in ("asc", "desc"):
+        order = "desc"
+    return sort, order
+
+
 @search_bp.get("/internal")
 @jwt_required()
 def internal_search():
@@ -26,10 +44,13 @@ def internal_search():
     if not keyword:
         return jsonify({"items": [], "query": keyword})
 
+    sort, order = _parse_sort_params()
     _check_embedding()
 
+    use_vector = _EMBEDDING_ENABLED and sort == "relevance"
+
     # Vector (semantic) search — only active when EMBEDDING_ENABLED=true
-    if _EMBEDDING_ENABLED:
+    if use_vector:
         from ..services.embeddings_service import get_embedding, search_posters_by_vector
 
         query_emb = get_embedding(keyword)
@@ -62,22 +83,27 @@ def internal_search():
     else:
         # Full-text (LIKE) search — always available
         like_value = f"%{keyword}%"
-        posters = (
-            Poster.query.filter(
-                or_(
-                    Poster.title.like(like_value),
-                    Poster.summary.like(like_value),
-                    Poster.raw_text.like(like_value),
-                    Poster.location.like(like_value),
-                    Poster.organizer.like(like_value),
-                )
+        query = Poster.query.filter(
+            or_(
+                Poster.title.like(like_value),
+                Poster.summary.like(like_value),
+                Poster.raw_text.like(like_value),
+                Poster.location.like(like_value),
+                Poster.organizer.like(like_value),
             )
-            .order_by(Poster.created_at.desc())
-            .limit(20)
-            .all()
         )
 
-    # Knowledge nodes — always use LIKE
+        # Apply sort
+        sort_col = _SORT_OPTIONS.get(sort)
+        if sort_col is not None:
+            order_fn = sort_col.desc if order == "desc" else sort_col.asc
+            query = query.order_by(order_fn(), Poster.id.desc())
+        else:
+            query = query.order_by(Poster.created_at.desc())
+
+        posters = query.limit(20).all()
+
+    # Knowledge nodes — always use LIKE, unaffected by sort
     like_value = f"%{keyword}%"
     nodes = (
         KnowledgeNode.query.filter(
@@ -96,7 +122,9 @@ def internal_search():
     return jsonify({
         "items": items,
         "query": keyword,
-        "search_mode": "vector" if _EMBEDDING_ENABLED else "fulltext",
+        "search_mode": "vector" if use_vector else "fulltext",
+        "sort": sort,
+        "order": order,
     })
 
 
@@ -108,22 +136,30 @@ def internal_search():
 @search_bp.get("/external")
 @jwt_required()
 def external_search():
-    """Search external sources using LLM knowledge.
+    """Search external sources using real search engines (SearXNG + Sogou).
+
+    Engines used by default: Google, Bing, DuckDuckGo, Baidu, Sogou.
+    Falls back to LLM knowledge when no search results found.
 
     Aligns with the documented ``GET /api/search/external?q=...`` interface.
     For advanced parameters (sources, etc.), use ``POST /api/ai/search``.
+    Pass ?sources=web,sogou,llm to specify which sources to query.
     """
     query = (request.args.get("q") or "").strip()
     if not query:
         return jsonify({"error": "query parameter 'q' is required"}), 400
 
+    # Parse optional source filter from query string
+    sources_raw = request.args.get("sources")
+    sources = [s.strip() for s in sources_raw.split(",")] if sources_raw else None
+
     from ..services.ai_service import search_external
 
-    result = search_external(query)
+    result = search_external(query, sources=sources)
     return jsonify({
         "query": query,
         "results": result["results"],
         "count": len(result["results"]),
-        "source": "llm",
+        "source": "multi",
         "error": result.get("error"),
     })

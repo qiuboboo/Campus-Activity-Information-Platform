@@ -250,51 +250,85 @@ def enrich_poster(poster_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# External search (LLM-driven)
+# External search (multi-engine + LLM fallback)
 # ---------------------------------------------------------------------------
 
 
 def search_external(query: str, sources: list[str] | None = None) -> dict:
-    """Search for activity information using LLM knowledge.
+    """Search for activity information using real search engines.
 
-    This is a lightweight alternative to full web search — it relies on the
-    LLM's training data. For real-time search, connect a search MCP server.
+    Strategy:
+    1. Try multi-engine search (SearXNG → Google, Bing, DuckDuckGo, Baidu + Sogou)
+    2. If no results and LLM available, fall back to LLM-based search.
 
-    Returns a dict with:
-        results (list[dict]):  list of result dicts with keys: title, summary, source, url
-        error (str | None):    error message if the call failed, None on success
+    Args:
+        query: Search query string.
+        sources: Which sources to search. Values include:
+            "web" — SearXNG engines (google, bing, duckduckgo, baidu)
+            "sogou" — Sogou WeChat search
+            "llm" — LLM knowledge (fallback)
+            Defaults to all.
+
+    Returns:
+        dict with keys: results (list[dict]), error (str | None)
+        Each result has: title, summary, source, url
     """
-    # Check API key upfront so we can give a clear error
-    if not _get_config("LLM_API_KEY", ""):
-        logger.error("External search failed: LLM_API_KEY is not set")
-        return {"results": [], "error": "LLM service not configured"}
+    # Resolve which engines to use
+    engine_map = {
+        "web": ["google", "bing", "duckduckgo", "baidu"],
+        "sogou": ["sogou"],
+        "llm": [],
+    }
 
-    sources_str = ", ".join(sources) if sources else "校园网站、社交媒体、活动平台"
-    prompt = (
-        f"搜索以下校园活动信息，请从以下来源查找：{sources_str}\n\n"
-        f"查询：{query}\n\n"
-        f"请返回 JSON 数组，每个元素包含 title、summary、source、url 字段。"
-        f"如果搜索结果为空，返回空数组。只返回 JSON。"
-    )
+    engines: list[str] = []
+    use_llm_fallback = False
+    if sources:
+        for s in sources:
+            if s in engine_map:
+                engines.extend(engine_map[s])
+            else:
+                engines.append(s)  # pass through (e.g. specific engine name)
+        use_llm_fallback = "llm" in sources
+    else:
+        # Default: all real search engines + sogou, no LLM fallback
+        engines = ["google", "bing", "duckduckgo", "baidu", "sogou"]
 
-    result = _llm_chat(
-        [
-            {"role": "system", "content": "你是一个校园活动搜索助手。返回 JSON 数组。"},
-            {"role": "user", "content": prompt},
-        ],
-        response_format=list,
-    )
+    # Step 1: Try multi-engine search
+    from .multi_search_service import search as multi_search
 
-    if result is None:
-        logger.error("External search failed: LLM call returned None after retries")
-        return {"results": [], "error": "LLM service unavailable"}
+    result = multi_search(query, engines=engines if engines else None)
+    if result["results"]:
+        return result
 
-    if not isinstance(result, list):
-        logger.warning(
-            "External search returned unexpected type (expected list, got %s): %r",
-            type(result).__name__,
-            result,
+    # Step 2: Optionally fall back to LLM
+    if use_llm_fallback or (not sources and engines):
+        if not _get_config("LLM_API_KEY", ""):
+            return result  # return the empty result as-is
+
+        logger.info("Multi-search returned no results, falling back to LLM")
+        sources_str = ", ".join(sources) if sources else "校园网站、社交媒体、活动平台"
+        prompt = (
+            f"搜索以下校园活动信息，请从以下来源查找：{sources_str}\n\n"
+            f"查询：{query}\n\n"
+            f"请返回 JSON 数组，每个元素包含 title、summary、source、url 字段。"
+            f"如果搜索结果为空，返回空数组。只返回 JSON。"
         )
-        return {"results": [], "error": "LLM returned invalid response format"}
 
-    return {"results": result, "error": None}
+        llm_result = _llm_chat(
+            [
+                {"role": "system", "content": "你是一个校园活动搜索助手。返回 JSON 数组。"},
+                {"role": "user", "content": prompt},
+            ],
+            response_format=list,
+        )
+
+        if llm_result is None:
+            logger.warning("LLM fallback search also failed for query=%r", query)
+            return {"results": [], "error": "Search engines unavailable and LLM fallback failed"}
+
+        if not isinstance(llm_result, list):
+            return {"results": [], "error": "LLM returned invalid response format"}
+
+        return {"results": llm_result, "error": None}
+
+    return result

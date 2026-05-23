@@ -1,0 +1,167 @@
+# SearXNG settings — minimal config for campus activity platform
+# Only used engines: google, bing, duckduckgo, baidu
+use_default_settings: true
+general:
+  instance_name: "Campus Activity Search"
+  privacypolicy_url: false
+  contact_url: false
+  enable_metrics: false
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+server:
+  secret_key: "0786ca2220d16cc5a6a35f5a07dad80ba4786d2fc61a0287394894cc57b6485e"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: false
+  # Disable link token check — we access API directly from backend
+  link_token: false
+ui:
+  static_use_hash: false
+  default_theme: simple
+  default_locale: zh-Hans-CN
+  results_on_new_tab: false
+# Only enable these engines, disable all others
+engines:
+  # Enabled engines
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: baidu
+    disabled: false
+  # Disable everything else
+  - name: google news
+    disabled: true
+  - name: google video
+    disabled: true
+  - name: google images
+    disabled: true
+  - name: google scholar
+    disabled: true
+  - name: bing news
+    disabled: true
+  - name: bing images
+    disabled: true
+  - name: bing video
+    disabled: true
+  - name: wikipedia
+    disabled: true
+  - name: wikidata
+    disabled: true
+  - name: duckduckgo definitions
+    disabled: true
+  - name: semantic scholar
+    disabled: true
+  - name: pubmed
+    disabled: true
+  - name: arXiv
+    disabled: true
+  - name: yahoo news
+    disabled: true
+  - name: yandex
+    disabled: true
+  - name: qwant
+    disabled: true
+  - name: startpage
+    disabled: true
+  - name: mojeek
+    disabled: true
+  - name: brave
+    disabled: true
+  - name: searchx
+    disabled: true
+  - name: swisscows
+    disabled: true
+  - name: wiby
+    disabled: true
+  - name: naver
+    disabled: true
+  - name: daum
+    disabled: true
+  - name: searxng
+    disabled: true
+  - name: ahmia
+    disabled: true
+  - name: torrent
+    disabled: true
+  - name: currency_convert
+    disabled: true
+  - name: dictzone
+    disabled: true
+  - name: didyoumean
+    disabled: true
+  - name: digitalsociety
+    disabled: true
+  - name: docker_hub
+    disabled: true
+  - name: emerge
+    disabled: true
+  - name: fdroid
+    disabled: true
+  - name: flickr
+    disabled: true
+  - name: framalibre
+    disabled: true
+  - name: github
+    disabled: true
+  - name: gitlab
+    disabled: true
+  - name: google play
+    disabled: true
+  - name: google play movies
+    disabled: true
+  - name: hoogle
+    disabled: true
+  - name: inventio
+    disabled: true
+  - name: php net
+    disabled: true
+  - name: pypi
+    disabled: true
+  - name: rubygems
+    disabled: true
+  - name: unity
+    disabled: true
+  - name: wolframalpha
+    disabled: true
+  - name: cran
+    disabled: true
+  - name: ctec
+    disabled: true
+  - name: debian packages
+    disabled: true
+  - name: library of congress
+    disabled: true
+  - name: nix packages
+    disabled: true
+  - name: nix options
+    disabled: true
+  - name: openthesaurus
+    disabled: true
+  - name: pdbe
+    disabled: true
+  - name: qwant images
+    disabled: true
+  - name: qwant news
+    disabled: true
+  - name: solid homepage
+    disabled: true
+  - name: wikibooks
+    disabled: true
+  - name: wikiquote
+    disabled: true
+  - name: wikiversity
+    disabled: true
+  - name: duolingo
+    disabled: true
+  - name: google news rss
+    disabled: true
+  - name: null
+    disabled: true

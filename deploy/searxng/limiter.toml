@@ -1,0 +1,4 @@
+# SearXNG limiter config — allow all internal requests
+[botdetection.ip_limit]
+# No IP-based rate limiting
+link_token = false

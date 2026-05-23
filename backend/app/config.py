@@ -87,6 +87,9 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
 
+    # --- Multi-Engine Search (SearXNG) ---
+    SEARXNG_BASE_URL = os.getenv("SEARXNG_BASE_URL", "http://campus-activity-searxng:8080")
+
     # --- Sogou WeChat Search ---
     SOGOU_COOKIES = os.getenv("SOGOU_COOKIES", "")
 

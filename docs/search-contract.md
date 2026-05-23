@@ -13,6 +13,8 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `q` | string | 是 | — | 搜索关键词；为空时直接返回空结果（200） |
+| `sort` | string | 否 | `relevance` | 排序字段：`relevance` / `created_at` / `title` / `event_time` |
+| `order` | string | 否 | `desc` | 排序方向：`asc` / `desc` |
 | `page` | int | 否 | `1` | 页码，最小值 1 |
 | `per_page` | int | 否 | `20` | 每页条数，最大值 50 |
 
@@ -31,7 +33,9 @@
     }
   ],
   "query": "搜索词",
-  "search_mode": "fulltext"
+  "search_mode": "fulltext",
+  "sort": "relevance",
+  "order": "desc"
 }
 ```
 
@@ -42,23 +46,33 @@
 | `poster` | 活动海报 | 见 [Poster.to_dict()](../backend/app/models.py#L104) 全部字段 |
 | `knowledge_node` | 知识节点 | 见 [KnowledgeNode.to_dict()](../backend/app/models.py#L154) 全部字段 |
 
-### 1.4 `search_mode` 取值
+### 1.4 排序参数
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `sort` | string | 否 | `relevance` | 排序字段：`relevance`（向量评分/创建时间）、`created_at`、`title`、`event_time` |
+| `order` | string | 否 | `desc` | 排序方向：`asc` / `desc` |
+
+注：`sort=relevance` 且 `EMBEDDING_ENABLED=true` 时使用语义向量评分排序；否则按创建时间降序。
+
+### 1.5 `search_mode` 取值
 
 | 取值 | 说明 | 启用条件 |
 |------|------|----------|
 | `fulltext` | PostgreSQL `LIKE` 全文检索 | 始终可用 |
-| `vector` | pgvector 语义向量检索 | `EMBEDDING_ENABLED=true` 且 pgvector 扩展已安装 |
+| `vector` | pgvector 语义向量检索 | `EMBEDDING_ENABLED=true` 且 pgvector 扩展已安装；仅在 `sort=relevance` 时启用 |
 
-### 1.5 Null 语义
+### 1.6 Null 语义
 
 - `items`：空结果时为 `[]`，不会是 `null` 或缺失
 - `item` 中的标量字段：`null` 表示该字段未设置（如 draft 状态的 `event_time`）
 - `query`：始终为 string，不会为 `null`
 - `search_mode`：当查询为空时可能缺失，否则始终有值
+- `sort` / `order`：当查询为空时可能缺失，否则始终有值
 
-### 1.6 场景示例
+### 1.7 场景示例
 
-**正常结果：**
+**正常结果（默认排序）：**
 ```
 GET /api/search/internal?q=讲座
 → 200
@@ -74,7 +88,22 @@ GET /api/search/internal?q=讲座
     }
   ],
   "query": "讲座",
-  "search_mode": "fulltext"
+  "search_mode": "fulltext",
+  "sort": "relevance",
+  "order": "desc"
+}
+```
+
+**按标题升序：**
+```
+GET /api/search/internal?q=讲座&sort=title&order=asc
+→ 200
+{
+  "items": [...],
+  "query": "讲座",
+  "search_mode": "fulltext",
+  "sort": "title",
+  "order": "asc"
 }
 ```
 
@@ -85,7 +114,9 @@ GET /api/search/internal?q=zzz_no_match_xyz
 {
   "items": [],
   "query": "zzz_no_match_xyz",
-  "search_mode": "fulltext"
+  "search_mode": "fulltext",
+  "sort": "relevance",
+  "order": "desc"
 }
 ```
 
@@ -119,6 +150,7 @@ GET /api/search/internal?q=讲座
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `q` | string | 是 | — | 搜索关键词；为空返回 400 |
+| `sources` | string | 否 | `web,sogou` | 搜索源，逗号分隔。可选值：`web`（搜索引擎）、`sogou`（搜狗微信）、`llm`（LLM 兜底） |
 
 ### 2.2 返回结构
 
@@ -129,12 +161,12 @@ GET /api/search/internal?q=讲座
     {
       "title": "结果标题",
       "summary": "结果摘要",
-      "source": "来源名称",
+      "source": "搜索引擎名称",
       "url": "https://example.com/article"
     }
   ],
   "count": 1,
-  "source": "llm",
+  "source": "multi",
   "error": null
 }
 ```
@@ -147,10 +179,10 @@ GET /api/search/internal?q=讲座
 | `results` | `list[dict]` | 是 | 结果数组；无结果时为 `[]`，不会是 `null` 或缺失 |
 | `results[].title` | string | 是 | 结果标题 |
 | `results[].summary` | string | 是 | 结果摘要 |
-| `results[].source` | string | 是 | 信息来源名称（如"中山大学官网"） |
-| `results[].url` | string\|null | 否 | 信息来源链接；LLM 可能无法提供，此时为 `null` |
+| `results[].source` | string | 是 | 具体搜索引擎名称：`google` / `bing` / `duckduckgo` / `baidu` / `sogou` 或 LLM 来源名称 |
+| `results[].url` | string\|null | 否 | 信息来源链接；搜索引擎总能提供，LLM 可能无法提供 |
 | `count` | int | 是 | 结果数量，等于 `len(results)` |
-| `source` | string | 是 | 固定为 `"llm"`（保留扩展，后续可支持其他外部搜索源） |
+| `source` | string | 是 | 固定为 `"multi"`，表示多引擎聚合搜索 |
 | `error` | string\|null | 否 | 正常时为 `null`；异常时返回人类可读的错误描述 |
 
 ### 2.4 error 取值说明
@@ -158,29 +190,30 @@ GET /api/search/internal?q=讲座
 | `error` 值 | 含义 | 前端建议表现 |
 |------------|------|-------------|
 | `null` | 调用成功 | 正常展示 `results` |
-| `"LLM service not configured"` | 后端未配置 LLM API Key | 显示"搜索服务未配置"提示 |
-| `"LLM service unavailable"` | LLM 调用失败（网络/超时） | 显示"搜索服务暂时不可用"提示 |
-| `"LLM returned invalid response format"` | LLM 返回了非预期的数据格式 | 显示"搜索结果异常"提示 |
+| `"All search engines returned no results"` | SearXNG + Sogou 均无结果 | 显示"未找到相关内容"提示 |
+| `"No search engines configured"` | 未指定任何搜索源 | 显示"未指定搜索源"提示 |
+| `"Search engines unavailable and LLM fallback failed"` | SearXNG 不可用且 LLM 兜底也失败 | 显示"搜索服务暂时不可用"提示 |
 
 ### 2.5 场景示例
 
-**正常结果：**
+**正常结果（多引擎聚合）：**
 ```
 GET /api/search/external?q=校园科技节
 → 200
 {
   "query": "校园科技节",
   "results": [
-    { "title": "2026 校园科技节开幕式", "summary": "2026 年校园科技节将于 5 月 10 日开幕...", "source": "中山大学官网", "url": "https://www.sysu.edu.cn/news/123" },
-    { "title": "科技节系列活动预告", "summary": "科技节期间将举办多场讲座和竞赛...", "source": "中山大学团委", "url": null }
+    { "title": "关于举办2026年校园科技节的通知", "summary": "2026年校园科技节将于5月10日开幕...", "source": "baidu", "url": "https://www.sysu.edu.cn/news/123" },
+    { "title": "科技节系列活动预告", "summary": "科技节期间将举办多场讲座和竞赛...", "source": "google", "url": "https://www.sysu.edu.cn/news/456" },
+    { "title": "中山大学科技节", "summary": "中山大学2026年科技节活动安排", "source": "bing", "url": "https://cn.bing.com/search?q=..." }
   ],
-  "count": 2,
-  "source": "llm",
+  "count": 3,
+  "source": "multi",
   "error": null
 }
 ```
 
-**正常空结果（LLM 真的没找到）：**
+**正常空结果（所有引擎均未找到）：**
 ```
 GET /api/search/external?q=xyz_unknown_abc
 → 200
@@ -188,12 +221,12 @@ GET /api/search/external?q=xyz_unknown_abc
   "query": "xyz_unknown_abc",
   "results": [],
   "count": 0,
-  "source": "llm",
+  "source": "multi",
   "error": null
 }
 ```
 
-**LLM 服务不可用：**
+**所有搜索引擎不可用：**
 ```
 GET /api/search/external?q=讲座
 → 200
@@ -201,8 +234,8 @@ GET /api/search/external?q=讲座
   "query": "讲座",
   "results": [],
   "count": 0,
-  "source": "llm",
-  "error": "LLM service unavailable"
+  "source": "multi",
+  "error": "All search engines returned no results"
 }
 ```
 
@@ -232,4 +265,6 @@ GET /api/search/external?q=讲座
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
+| 2.1 | 2026-05-24 | 内部搜索增加 `sort` / `order` 参数；增加排序字段说明和示例 |
+| 2.0 | 2026-05-24 | 多搜索引擎集成：`source` 改为 `"multi"`，`results[].source` 为具体引擎名；新增 `sources` 参数；移除 LLM-only 错误取值 |
 | 1.0 | 2026-05-24 | 初版，冻结 Internal / External 搜索接口契约 |
