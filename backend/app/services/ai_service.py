@@ -254,14 +254,21 @@ def enrich_poster(poster_id: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def search_external(query: str, sources: list[str] | None = None) -> list[dict]:
+def search_external(query: str, sources: list[str] | None = None) -> dict:
     """Search for activity information using LLM knowledge.
 
     This is a lightweight alternative to full web search — it relies on the
     LLM's training data. For real-time search, connect a search MCP server.
 
-    Returns a list of result dicts with keys: title, summary, source, url (if known).
+    Returns a dict with:
+        results (list[dict]):  list of result dicts with keys: title, summary, source, url
+        error (str | None):    error message if the call failed, None on success
     """
+    # Check API key upfront so we can give a clear error
+    if not _get_config("LLM_API_KEY", ""):
+        logger.error("External search failed: LLM_API_KEY is not set")
+        return {"results": [], "error": "LLM service not configured"}
+
     sources_str = ", ".join(sources) if sources else "校园网站、社交媒体、活动平台"
     prompt = (
         f"搜索以下校园活动信息，请从以下来源查找：{sources_str}\n\n"
@@ -279,6 +286,15 @@ def search_external(query: str, sources: list[str] | None = None) -> list[dict]:
     )
 
     if result is None:
-        return []
+        logger.error("External search failed: LLM call returned None after retries")
+        return {"results": [], "error": "LLM service unavailable"}
 
-    return result if isinstance(result, list) else []
+    if not isinstance(result, list):
+        logger.warning(
+            "External search returned unexpected type (expected list, got %s): %r",
+            type(result).__name__,
+            result,
+        )
+        return {"results": [], "error": "LLM returned invalid response format"}
+
+    return {"results": result, "error": None}

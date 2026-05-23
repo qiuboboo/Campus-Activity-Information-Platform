@@ -119,10 +119,11 @@ def external_search():
 
     from ..services.ai_service import search_external
 
-    results = search_external(query)
+    result = search_external(query)
     return jsonify({
         "query": query,
-        "results": results,
-        "count": len(results),
+        "results": result["results"],
+        "count": len(result["results"]),
         "source": "llm",
+        "error": result.get("error"),
     })
