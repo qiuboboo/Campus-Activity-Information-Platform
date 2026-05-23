@@ -43,6 +43,7 @@ const POSTERS = [
     event_time: '2026-05-10T19:00:00',
     location: '大学生活动中心大礼堂',
     organizer: '校团委',
+    activity_type: '其他',
     status: 'published',
     source_type: 'manual',
     source_url: 'https://example.edu.cn/events/tech-culture-opening',
@@ -57,6 +58,7 @@ const POSTERS = [
     event_time: '2026-05-10T15:00:00',
     location: '大学生活动中心大礼堂',
     organizer: '计算机学院',
+    activity_type: '讲座',
     status: 'published',
     source_type: 'manual',
     source_url: 'https://example.edu.cn/events/ai-lecture',
@@ -71,6 +73,7 @@ const POSTERS = [
     event_time: '2026-05-12T14:00:00',
     location: '图书馆报告厅',
     organizer: '校团委',
+    activity_type: '论坛',
     status: 'published',
     source_type: 'manual',
     source_url: 'https://example.edu.cn/events/volunteer-forum',
@@ -85,6 +88,7 @@ const POSTERS = [
     event_time: '2026-05-15T16:00:00',
     location: '校体育馆',
     organizer: '体育部',
+    activity_type: '体育',
     status: 'published',
     source_type: 'manual',
     source_url: 'https://example.edu.cn/events/basketball-final',
@@ -99,6 +103,7 @@ const POSTERS = [
     event_time: '2026-05-18T18:00:00',
     location: '音乐厅',
     organizer: '校学生会',
+    activity_type: '晚会',
     status: 'pending_review',
     source_type: 'manual',
     source_url: '',
@@ -113,6 +118,7 @@ const POSTERS = [
     event_time: '2026-05-20T14:00:00',
     location: '教学楼 101 教室',
     organizer: '学习部',
+    activity_type: '讲座',
     status: 'draft',
     source_type: 'manual',
     source_url: '',
@@ -122,17 +128,22 @@ const POSTERS = [
 ]
 
 const KNOWLEDGE_NODES = [
-  { id: 1, poster_id: 1, label: '校园科技文化节', category: '活动', properties: '{"date":"2026-05-10","location":"大礼堂"}' },
-  { id: 2, poster_id: 1, label: '校团委', category: '组织', properties: '{}' },
-  { id: 3, poster_id: 2, label: 'AI 创新应用讲座', category: '活动', properties: '{"date":"2026-05-10","location":"大礼堂"}' },
-  { id: 4, poster_id: 2, label: '计算机学院', category: '组织', properties: '{}' },
-  { id: 5, poster_id: 1, label: '大学生活动中心', category: '地点', properties: '{}' },
+  { id: 1, name: '校园科技文化节', alias: null, node_type: 'topic', description: '年度校园科技文化盛会', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
+  { id: 2, name: '校团委', alias: '团委', node_type: 'organization', description: '共青团中山大学委员会', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
+  { id: 3, name: 'AI 创新应用讲座', alias: null, node_type: 'topic', description: '人工智能应用系列讲座', source_url: null, created_at: '2026-04-02T10:00:00', updated_at: '2026-04-02T10:00:00' },
+  { id: 4, name: '计算机学院', alias: '计科院', node_type: 'organization', description: '计算机科学与技术学院', source_url: null, created_at: '2026-04-02T10:00:00', updated_at: '2026-04-02T10:00:00' },
+  { id: 5, name: '大学生活动中心大礼堂', alias: '大礼堂', node_type: 'place', description: '主校区大型活动场馆', source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
+  { id: 6, name: '图书馆报告厅', alias: null, node_type: 'place', description: '图书馆多功能报告厅', source_url: null, created_at: '2026-04-03T10:00:00', updated_at: '2026-04-03T10:00:00' },
+  { id: 7, name: '体育部', alias: null, node_type: 'organization', description: '中山大学体育部', source_url: null, created_at: '2026-04-05T10:00:00', updated_at: '2026-04-05T10:00:00' },
+  { id: 8, name: '校学生会', alias: '学生会', node_type: 'organization', description: '中山大学学生会', source_url: null, created_at: '2026-04-10T10:00:00', updated_at: '2026-04-10T10:00:00' },
+  { id: 9, name: '2026年5月', alias: null, node_type: 'time', description: null, source_url: null, created_at: '2026-04-01T10:00:00', updated_at: '2026-04-01T10:00:00' },
 ]
 
 const KNOWLEDGE_LINKS = [
   { id: 1, source_node_id: 1, target_node_id: 2, relation: '主办单位' },
   { id: 2, source_node_id: 3, target_node_id: 4, relation: '主办单位' },
   { id: 3, source_node_id: 1, target_node_id: 5, relation: '举办地点' },
+  { id: 4, source_node_id: 1, target_node_id: 9, relation: '举办时间' },
 ]
 
 const SOURCES = [
@@ -337,8 +348,8 @@ const routes = {
 
   // --- 知识图谱 ---
   'GET /api/knowledge/nodes': async () => ({
-    nodes: KNOWLEDGE_NODES,
-    links: KNOWLEDGE_LINKS,
+    items: KNOWLEDGE_NODES,
+    total: KNOWLEDGE_NODES.length,
   }),
 
   'GET /api/knowledge/nodes/:id': async (_req, id) => {
