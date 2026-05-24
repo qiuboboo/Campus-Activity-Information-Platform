@@ -26,8 +26,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.role === 'admin')
   const isPublisher = computed(() => user.value?.role === 'publisher' || user.value?.role === 'admin')
 
-  async function login(username: string, password: string) {
-    const res = await loginApi({ username, password })
+  async function login(username: string, password: string, captcha_token?: string, captcha_code?: string) {
+    const res = await loginApi({ username, password, captcha_token, captcha_code })
     const data = res.data
     if (!data.token) {
       throw new Error(data.message || 'invalid credentials')

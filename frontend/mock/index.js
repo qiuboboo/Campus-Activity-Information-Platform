@@ -47,7 +47,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    const data = await handler(req)
+    const data = await handler(req, res)
+    // null return means handler already wrote a raw response (e.g. captcha SVG)
+    if (data === null) return
     const status = data?.message === 'invalid credentials' ? 401 : 200
     jsonResponse(res, data, status)
   } catch (error) {

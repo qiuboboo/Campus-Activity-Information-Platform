@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue"
+import { ref, reactive, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
+import { getCaptcha } from "@/api/auth"
 import { ElMessage } from "element-plus"
 import type { FormInstance, FormRules } from "element-plus"
 import AuthLayout from "@/components/AuthLayout.vue"
@@ -15,11 +16,16 @@ const loading = ref(false)
 const showPwd = ref(false)
 const rememberMe = ref(localStorage.getItem("remembered_user") !== null)
 
+const captchaToken = ref("")
+const captchaImageUrl = ref("")
+const captchaLoading = ref(false)
+
 const form = reactive({
   username: rememberMe.value
     ? localStorage.getItem("remembered_user") || ""
     : "",
   password: "",
+  captchaCode: "",
 })
 
 const rules: FormRules = {
@@ -29,7 +35,27 @@ const rules: FormRules = {
     { max: 50, message: "用户名/邮箱不能超过 50 个字符", trigger: "blur" },
   ],
   password: passwordRules,
+  captchaCode: [
+    { required: true, message: "请输入验证码", trigger: "blur" },
+  ],
 }
+
+async function refreshCaptcha() {
+  captchaLoading.value = true
+  try {
+    const data = await getCaptcha()
+    captchaToken.value = data.captchaToken
+    captchaImageUrl.value = data.imageUrl
+  } catch {
+    ElMessage.error("验证码加载失败")
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+onMounted(() => {
+  refreshCaptcha()
+})
 
 async function handleLogin() {
   const valid = await formRef.value?.validate().catch(() => false)
@@ -37,7 +63,7 @@ async function handleLogin() {
 
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
+    await auth.login(form.username, form.password, captchaToken.value, form.captchaCode)
 
     if (rememberMe.value) {
       localStorage.setItem("remembered_user", form.username)
@@ -51,6 +77,9 @@ async function handleLogin() {
     const msg = err?.response?.data?.message || err?.message || ""
     if (msg.includes("invalid credentials")) {
       ElMessage.error("用户名或密码错误，请重试")
+    } else if (msg.includes("captcha") || msg.includes("验证码")) {
+      ElMessage.error(msg)
+      refreshCaptcha()
     } else if (
       msg.includes("network") ||
       msg.includes("Network") ||
@@ -108,6 +137,28 @@ async function handleLogin() {
         </el-input>
       </el-form-item>
 
+      <el-form-item label="验证码" prop="captchaCode">
+        <div class="captcha-row">
+          <el-input
+            v-model="form.captchaCode"
+            placeholder="请输入验证码"
+            size="large"
+            maxlength="6"
+            class="captcha-input"
+            @keyup.enter="handleLogin"
+          />
+          <div class="captcha-img-wrap" @click="refreshCaptcha" :class="{ loading: captchaLoading }">
+            <img
+              v-if="captchaImageUrl"
+              :src="captchaImageUrl"
+              alt="验证码"
+              class="captcha-img"
+            />
+            <el-icon v-else class="captcha-placeholder"><PictureFilled /></el-icon>
+          </div>
+        </div>
+      </el-form-item>
+
       <el-form-item>
         <div class="form-options">
           <el-checkbox v-model="rememberMe" size="small">
@@ -147,6 +198,52 @@ async function handleLogin() {
 </template>
 
 <style scoped>
+.captcha-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.captcha-input {
+  flex: 1;
+}
+
+.captcha-img-wrap {
+  width: 120px;
+  height: 40px;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+
+.captcha-img-wrap:hover {
+  border-color: #0b7d5b;
+}
+
+.captcha-img-wrap.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.captcha-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.captcha-placeholder {
+  font-size: 24px;
+  color: #c0c4cc;
+}
+
 .form-options {
   display: flex;
   justify-content: space-between;

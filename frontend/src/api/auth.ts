@@ -1,8 +1,25 @@
 import client from './client'
 
+export interface CaptchaData {
+  imageUrl: string
+  captchaToken: string
+}
+
+/** Fetch captcha image and extract the token from X-Captcha-Token header. */
+export async function getCaptcha(): Promise<CaptchaData> {
+  const resp = await fetch('/api/auth/captcha')
+  if (!resp.ok) throw new Error('Failed to fetch captcha')
+  const blob = await resp.blob()
+  const imageUrl = URL.createObjectURL(blob)
+  const captchaToken = resp.headers.get('X-Captcha-Token') || ''
+  return { imageUrl, captchaToken }
+}
+
 export interface LoginRequest {
   username: string
   password: string
+  captcha_token?: string
+  captcha_code?: string
 }
 
 export interface LoginResponse {
@@ -12,6 +29,7 @@ export interface LoginResponse {
     id: number
     username: string
     role: string
+    email?: string
     created_at: string
   } | null
 }
@@ -27,6 +45,10 @@ export function getMe() {
 export interface RegisterRequest {
   username: string
   password: string
+  email?: string
+  verification_code?: string
+  captcha_token?: string
+  captcha_code?: string
   role?: string
 }
 
@@ -43,6 +65,8 @@ export interface RegisterVerifyRequest {
   password: string
   email: string
   verification_code: string
+  captcha_token?: string
+  captcha_code?: string
 }
 
 export function registerWithEmail(data: RegisterVerifyRequest) {
