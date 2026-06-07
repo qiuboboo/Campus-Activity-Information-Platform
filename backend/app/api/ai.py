@@ -7,6 +7,11 @@ extraction, enrichment, search, and MCP tool access.
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import jwt_required
 
+from ..extensions import db
+from ..models import Poster
+from ..schemas import data
+from ..services.ai_service import enrich_poster, extract_from_text, search_external
+from ..services.mcp_service import call_tool, list_servers
 from ..utils.auth import roles_required
 
 ai_bp = Blueprint("ai", __name__)
@@ -24,7 +29,6 @@ def status():
     llm_key = bool(current_app.config.get("LLM_API_KEY", ""))
     mcp_servers = current_app.config.get("MCP_SERVERS", "")
 
-    from ..services.mcp_service import list_servers
     server_status = list_servers()
 
     return jsonify({
@@ -56,7 +60,6 @@ def extract():
 
     model = (data.get("model") or "").strip() or None
 
-    from ..services.ai_service import extract_from_text
     result = extract_from_text(raw_text, profile=model)
 
     if not result:
@@ -79,14 +82,11 @@ def extract():
 @roles_required("admin")
 def enrich(poster_id: int):
     """Enrich a poster with AI-generated summary, tags, and keywords."""
-    from ..services.ai_service import enrich_poster
     result = enrich_poster(poster_id)
 
     if not result:
         return jsonify({"error": "Enrichment failed (LLM unavailable or poster not found)"}), 503
 
-    from ..extensions import db
-    from ..models import Poster
     poster = db.session.get(Poster, poster_id)
     return jsonify({"item": poster.to_dict() if poster else None, "ai_result": result})
 
@@ -110,7 +110,6 @@ def search():
     if not query:
         return jsonify({"error": "query is required"}), 400
 
-    from ..services.ai_service import search_external
     results = search_external(query, sources=data.get("sources"))
 
     return jsonify({"query": query, "results": results, "count": len(results)})
@@ -125,7 +124,6 @@ def search():
 @jwt_required()
 def list_mcp_servers():
     """List configured MCP servers and their running status."""
-    from ..services.mcp_service import list_servers
     return jsonify({"servers": list_servers()})
 
 
@@ -148,7 +146,6 @@ def call_mcp_tool():
     if not tool:
         return jsonify({"error": "tool is required"}), 400
 
-    from ..services.mcp_service import call_tool
     result = call_tool(server, tool, params)
 
     if result is None:

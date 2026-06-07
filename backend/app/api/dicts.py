@@ -8,6 +8,7 @@ from ..services.dict_manager import (
     add_entry,
     delete_entry,
     list_entries,
+    seed_builtin_aliases,
     update_entry,
 )
 from ..utils.auth import roles_required
@@ -81,8 +82,6 @@ def remove_entry(category: str, entry_id: int):
 @roles_required("admin")
 def seed_entries():
     """Insert built-in alias mappings into the database."""
-    from ..services.dict_manager import seed_builtin_aliases
-
     count = seed_builtin_aliases()
     db.session.commit()
     return jsonify({"seeded": count}), 201 if count else 200

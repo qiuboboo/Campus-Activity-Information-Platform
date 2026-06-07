@@ -37,42 +37,6 @@ class Config:
     LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "https://api.deepseek.com")
     LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
 
-    # Named model profiles: LLM_{NAME}_KEY / LLM_{NAME}_BASE_URL / LLM_{NAME}_MODEL
-    # e.g. LLM_CLAUDE_KEY=sk-xxx / LLM_CLAUDE_BASE_URL=https://api.anthropic.com / LLM_CLAUDE_MODEL=claude-sonnet-4-20250514
-    @staticmethod
-    def list_llm_profiles() -> dict[str, dict]:
-        """Discover all configured LLM profiles from environment variables.
-
-        Returns a dict keyed by profile name, each containing key/base_url/model.
-        The "default" profile is always present if LLM_API_KEY is set.
-        """
-        profiles: dict[str, dict] = {}
-
-        key = os.getenv("LLM_API_KEY", "")
-        if key:
-            profiles["default"] = {
-                "key": key,
-                "base_url": os.getenv("LLM_API_BASE_URL", "https://api.deepseek.com"),
-                "model": os.getenv("LLM_MODEL", "deepseek-chat"),
-            }
-
-        # Discover named profiles: scan env for LLM_*_KEY pattern
-        for env_key, env_val in sorted(os.environ.items()):
-            if not env_val:
-                continue
-            if env_key.startswith("LLM_") and env_key.endswith("_KEY"):
-                name = env_key[4:-4].lower()  # LLM_DEEPSEEK_KEY -> deepseek
-                if name == "api":
-                    continue  # skip LLM_API_KEY
-                prefix = f"LLM_{name.upper()}"
-                profiles[name] = {
-                    "key": env_val,
-                    "base_url": os.getenv(f"{prefix}_BASE_URL", "https://api.deepseek.com"),
-                    "model": os.getenv(f"{prefix}_MODEL", ""),
-                }
-
-        return profiles
-
     # --- MCP Service ---
     MCP_SERVERS = os.getenv("MCP_SERVERS", "")
 

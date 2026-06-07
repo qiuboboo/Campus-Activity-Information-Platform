@@ -4,6 +4,7 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import KnowledgeNode, Poster, PosterLink, PosterNode
+from .dict_manager import normalize as _dict_normalize
 
 
 NODE_RELATION_TYPES = {
@@ -68,14 +69,12 @@ def _node_specs_for_poster(poster: Poster) -> list[dict]:
     # Normalize location and organizer through the controlled vocabulary
     if location:
         try:
-            from .dict_manager import normalize
-            location = normalize(location, category="place")
+            location = _dict_normalize(location, category="place")
         except Exception:
             pass
     if organizer:
         try:
-            from .dict_manager import normalize
-            organizer = normalize(organizer, category="org")
+            organizer = _dict_normalize(organizer, category="org")
         except Exception:
             pass
 

@@ -76,6 +76,17 @@ def create_captcha() -> tuple[str, bytes]:
     The caller returns the image to the client; the client must submit
     both the token and the user-entered code when logging in.
     """
+    # Bypass captcha generation in test mode — Redis may not be available
+    if current_app.config.get("TESTING", False):
+        from io import BytesIO
+
+        from PIL import Image
+
+        img = Image.new("RGB", (1, 1), (255, 255, 255))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return ("test-captcha-token-00000000000000", buf.getvalue())
+
     code = _generate_code()
     image_bytes = _draw_captcha(code)
 

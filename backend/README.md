@@ -1,108 +1,88 @@
-# 校园活动信息平台后端
+# 校园活动信息平台 — 后端
 
-这是第一版可运行后端骨架，目标是先把项目从“只有文档”推进到“本地能跑、服务器可部署、接口可联调”。
+## 快速启动
 
-## 当前已落地
+```bash
+cd backend
+cp .env.example .env          # 编辑 .env 填入 API Key 等
+python wsgi.py                # http://127.0.0.1:5000
+```
 
-- Flask 应用工厂
-- JWT 登录鉴权
-- 海报基础接口
-- SQLite 本地零配置启动
-- PostgreSQL / Redis 部署入口
-- Dockerfile 和 `docker-compose.yml`
+默认管理员：`admin` / `admin123456`（在 `.env` 中配置）。
 
 ## 目录结构
 
-```text
-backend
-├─ app
-│  ├─ api
-│  ├─ services
-│  ├─ utils
-│  ├─ config.py
-│  ├─ extensions.py
-│  └─ models.py
-├─ .env.example
-├─ docker-compose.yml
-├─ Dockerfile
-├─ gunicorn.conf.py
-├─ requirements.txt
-└─ wsgi.py
+```
+backend/app/
+├── api/           # 蓝图 (12 个) — 参数提取，调用 service，返回 JSON
+├── services/      # 业务逻辑 (17 个) — 操作数据库，调用外部 API
+├── models/        # 数据模型 — 按领域拆分 (user/poster/knowledge/...)
+├── schemas/       # 响应 envelope 辅助函数
+├── tasks/         # Celery 异步任务 (crawl / ai / index)
+├── utils/         # 工具 (auth 装饰器 / 限流 / 搜索日志)
+├── config.py      # 环境变量配置
+├── extensions.py  # Flask 扩展初始化 (db, jwt, cors, redis)
+└── __init__.py    # create_app() 工厂函数
 ```
 
-## 本地启动
+## 技术栈
 
-```powershell
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-python wsgi.py
-```
+| 组件 | 技术 |
+|------|------|
+| Web 框架 | Flask + Gunicorn |
+| 数据库 | PostgreSQL + pgvector (生产) / SQLite (开发) |
+| ORM | SQLAlchemy (Flask-SQLAlchemy) |
+| 缓存/队列 | Redis |
+| 异步任务 | Celery + Celery Beat |
+| 认证 | JWT + 图形验证码 + 邮箱验证码 |
+| AI | OpenAI 兼容 API (DeepSeek/OpenAI/Copilot Pro) |
+| 搜索 | SearXNG 多引擎 + 搜狗微信 + 向量检索 (pgvector) |
+| 部署 | Docker Compose + Nginx |
 
-默认地址：`http://127.0.0.1:5000`
-
-默认管理员账号在 `.env` 中配置：
-
-- 用户名：`admin`
-- 密码：`admin123456`
-
-## 初始化数据库
-
-默认开发环境开启 `AUTO_CREATE_TABLES=true`，首次启动会自动建表并创建默认管理员。
-
-也可以手动执行：
-
-```powershell
-flask --app wsgi init-db
-flask --app wsgi seed-demo
-```
-
-## 已实现接口
-
-- `GET /api/health`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `GET /api/posters`
-- `POST /api/posters`
-- `GET /api/posters/{id}`
-- `PUT /api/posters/{id}`
-- `POST /api/posters/{id}/review`
-
-## 登录示例
-
-```json
-POST /api/auth/login
-{
-  "username": "admin",
-  "password": "admin123456"
-}
-```
-
-## Docker 部署
-
-1. 复制环境变量文件：
+## 常用命令
 
 ```bash
-cp .env.example .env
+# 开发
+python wsgi.py                           # 启动开发服务器
+
+# Docker
+docker compose up -d                     # 完整环境
+docker compose exec app python -m pytest tests/ -v  # 运行测试
+
+# Flask CLI
+flask --app wsgi init-db                 # 手动建表
+flask --app wsgi seed-demo               # 填充演示数据
 ```
 
-2. 把 `DATABASE_URL` 改成：
+## 环境变量
 
-```env
-DATABASE_URL=postgresql+psycopg://campus:campus123456@postgres:5432/campus_activity
-```
+见 `.env.example`。关键配置：
 
-3. 启动：
+| 变量 | 说明 |
+|------|------|
+| `DATABASE_URL` | 数据库连接 (默认 SQLite) |
+| `REDIS_URL` | Redis 连接 |
+| `JWT_SECRET_KEY` | JWT 签名密钥 |
+| `LLM_API_KEY` | LLM API 密钥 |
+| `EMBEDDING_ENABLED` | 是否开启向量检索 |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | 邮箱验证码 SMTP |
+| `CORS_ORIGINS` | 跨域来源 (默认 `*`) |
+
+## 开发规范
+
+见项目根目录 [CLAUDE.md](../CLAUDE.md)。关键约定：
+
+- API 层不直接操作 `db.session`，必须通过 service
+- 禁止函数体内懒加载 import（Celery 任务例外）
+- 新功能按 `models → services → schemas → api → tasks` 顺序开发
+- 响应格式：列表 `{"items": [], "page": 1, "per_page": 10, "total": 30}`，单项 `{"data": {}}`
+
+## 测试
 
 ```bash
-docker compose up -d --build
+docker compose exec app python -m pytest tests/ -v
 ```
 
-## 下一步建议
-
-1. 接入 PostgreSQL 迁移工具和真实表结构演进。
-2. 增加知识节点、关联关系、搜索接口。
-3. 接入 Celery 任务队列和 Redis。
-4. 增加外部抓取、审核流和日志审计。
+- API 集成测试优先，每个端点至少一个 happy path + 一个 error case
+- 外部依赖 (LLM API, MCP, HTTP) 需 mock
+- 数据库用内存 SQLite，不 mock

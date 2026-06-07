@@ -4,6 +4,8 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import Poster, PosterNode, PosterLink
+from ..schemas import created, data, paginated
+from ..services.ai_service import enrich_poster as _ai_enrich
 from ..services.audit_service import create_audit_log
 from ..services.knowledge_service import rebuild_poster_knowledge, related_payload
 from ..services.notification_service import dispatch_notifications
@@ -39,13 +41,9 @@ def list_posters():
         query = query.filter_by(status=status)
 
     items = query.paginate(page=page, per_page=per_page, error_out=False)
-    return jsonify(
-        {
-            "items": [poster.to_dict() for poster in items.items],
-            "page": page,
-            "per_page": per_page,
-            "total": items.total,
-        }
+    return paginated(
+        [poster.to_dict() for poster in items.items],
+        page=page, per_page=per_page, total=items.total,
     )
 
 
@@ -73,7 +71,7 @@ def create_poster():
         rebuild_poster_knowledge(poster)
         dispatch_notifications(poster)
     db.session.commit()
-    return jsonify({"item": poster.to_dict()}), 201
+    return created(poster.to_dict())
 
 
 @posters_bp.get("/<int:poster_id>")
@@ -209,12 +207,10 @@ def review_queue():
             query = query.order_by(sort_col)
 
     items = query.paginate(page=page, per_page=per_page, error_out=False)
-    return jsonify({
-        "items": [poster.to_dict() for poster in items.items],
-        "page": page,
-        "per_page": per_page,
-        "total": items.total,
-    })
+    return paginated(
+        [poster.to_dict() for poster in items.items],
+        page=page, per_page=per_page, total=items.total,
+    )
 
 
 @posters_bp.post("/bulk-review")
@@ -390,9 +386,7 @@ def rebuild_poster_knowledge_endpoint(poster_id: int):
 @roles_required("admin")
 def ai_enrich(poster_id: int):
     """Trigger AI enrichment (summary, tags, keywords) for a poster."""
-    from ..services.ai_service import enrich_poster
-
-    result = enrich_poster(poster_id)
+    result = _ai_enrich(poster_id)
     if not result:
         return jsonify({"error": "Enrichment failed (LLM unavailable or poster not found)"}), 400
 

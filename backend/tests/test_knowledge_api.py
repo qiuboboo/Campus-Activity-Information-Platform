@@ -56,3 +56,49 @@ class TestRebuildAllKnowledge:
     def test_requires_admin(self, client, publisher_headers):
         resp = client.post("/api/knowledge/rebuild", headers=publisher_headers)
         assert resp.status_code == 403
+
+
+# =============================================================================
+# Corner-case tests
+# =============================================================================
+
+
+class TestRebuildEdgeCases:
+    def test_rebuild_with_source_type_filter(self, client, admin_headers, sample_published_poster):
+        """Rebuilding with source_type=manual should only process manual posters."""
+        r = client.post("/api/knowledge/rebuild",
+                        json={"status": "published", "source_type": "manual"},
+                        headers=admin_headers)
+        assert r.status_code == 200
+        assert r.get_json()["total"] >= 1
+
+    def test_rebuild_with_no_matching_posters(self, client, admin_headers):
+        """Rebuilding with a status that has no posters returns zero."""
+        r = client.post("/api/knowledge/rebuild",
+                        json={"status": "nonexistent_status_xyz"},
+                        headers=admin_headers)
+        assert r.status_code == 200
+        assert r.get_json()["total"] == 0
+
+    def test_rebuild_returns_zero_failed_for_clean_data(self, client, admin_headers,
+                                                         sample_published_poster):
+        r = client.post("/api/knowledge/rebuild", headers=admin_headers)
+        assert r.status_code == 200
+        assert r.get_json()["failed"] == 0
+
+
+class TestListNodesEdgeCases:
+    def test_filter_nonexistent_type_returns_empty(self, client, admin_headers):
+        r = client.get("/api/knowledge/nodes?node_type=nonexistent", headers=admin_headers)
+        assert r.status_code == 200
+        assert r.get_json()["items"] == []
+
+    def test_keyword_no_match_returns_empty(self, client, admin_headers):
+        r = client.get("/api/knowledge/nodes?q=zzzz_no_match_xyz", headers=admin_headers)
+        assert r.status_code == 200
+        assert r.get_json()["items"] == []
+
+    def test_pagination_is_not_supported(self, client, admin_headers):
+        """Nodes endpoint returns all — pagination params should be ignored or OK."""
+        r = client.get("/api/knowledge/nodes?page=1&per_page=5", headers=admin_headers)
+        assert r.status_code == 200

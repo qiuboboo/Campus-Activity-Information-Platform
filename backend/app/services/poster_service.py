@@ -36,6 +36,19 @@ def generate_poster_html(
     return "\n".join(lines)
 
 
+def auto_extract_fields(title: str, content: str) -> dict:
+    """Extract structured fields from title + content using fallback extraction."""
+    from .fallback_extractor import fallback_extract
+
+    text = f"{title}\n{content}"
+    extracted = fallback_extract(text)
+    if "title" not in extracted or not extracted["title"]:
+        extracted["title"] = title
+    if "summary" not in extracted or not extracted["summary"]:
+        extracted["summary"] = content[:120]
+    return extracted
+
+
 def _parse_datetime(value):
     if not value:
         return None
@@ -77,4 +90,23 @@ def build_poster_fields(payload: dict, fallback=None) -> dict:
         "status": status,
         "source_type": source_type,
         "source_url": source_url,
+    }
+
+
+def auto_extract_fields(title: str, content: str) -> dict:
+    """Synthesize structured fields from a title and text body.
+
+    Delegates to ``fallback_extractor.fallback_extract`` for rule-based
+    extraction.  Returns at minimum ``{"summary": title}``.
+    """
+    from .fallback_extractor import fallback_extract
+
+    full_text = f"{title}\n{content}"
+    extracted = fallback_extract(full_text)
+    return {
+        "title": extracted.get("title", title),
+        "summary": extracted.get("summary", content[:120]),
+        "event_time": extracted.get("event_time"),
+        "location": extracted.get("location"),
+        "organizer": extracted.get("organizer"),
     }

@@ -3,6 +3,9 @@ from flask_jwt_extended import jwt_required
 from sqlalchemy import or_
 
 from ..models import KnowledgeNode, Poster
+from ..services.ai_service import search_external
+from ..services.embeddings_service import get_embedding, search_posters_by_vector
+from ..utils.search_logger import log_search
 import time
 
 search_bp = Blueprint("search", __name__)
@@ -43,8 +46,6 @@ def internal_search():
     t0 = time.time()
     keyword = (request.args.get("q") or "").strip()
     if not keyword:
-        from ..utils.search_logger import log_search
-
         log_search("internal", keyword, 0, 0, {}, "none")
         return jsonify({"items": [], "query": keyword})
 
@@ -55,8 +56,6 @@ def internal_search():
 
     # Vector (semantic) search — only active when EMBEDDING_ENABLED=true
     if use_vector:
-        from ..services.embeddings_service import get_embedding, search_posters_by_vector
-
         query_emb = get_embedding(keyword)
         if query_emb:
             posters_with_emb = Poster.query.filter(Poster.embedding.isnot(None)).all()
@@ -125,7 +124,6 @@ def internal_search():
     items.extend({"hit_type": "knowledge_node", "item": node.to_dict()} for node in nodes)
 
     latency_ms = (time.time() - t0) * 1000
-    from ..utils.search_logger import log_search
 
     result_types = {"poster": len(posters), "knowledge_node": len(nodes)}
     log_search(
@@ -173,12 +171,9 @@ def external_search():
     sources_raw = request.args.get("sources")
     sources = [s.strip() for s in sources_raw.split(",")] if sources_raw else None
 
-    from ..services.ai_service import search_external
-
     result = search_external(query, sources=sources)
 
     latency_ms = (time.time() - t0) * 1000
-    from ..utils.search_logger import log_search
 
     source_counts: dict[str, int] = {}
     for r in result["results"]:
