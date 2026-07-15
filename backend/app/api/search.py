@@ -20,6 +20,27 @@ _SORT_OPTIONS = {
 }
 
 
+def _external_result_item(result: dict, index: int) -> dict:
+    return {
+        "hit_type": "external",
+        "item": {
+            "id": -index,
+            "title": result.get("title") or "外部搜索结果",
+            "raw_text": result.get("summary") or "",
+            "summary": result.get("summary") or "",
+            "event_time": None,
+            "location": None,
+            "organizer": result.get("source"),
+            "status": "published",
+            "activity_type": "外部",
+            "created_at": None,
+            "source_url": result.get("url"),
+        },
+        "source": result.get("source"),
+        "url": result.get("url"),
+    }
+
+
 def _check_embedding():
     """Check whether embedding/vector search is available at runtime."""
     global _EMBEDDING_ENABLED
@@ -189,10 +210,20 @@ def external_search():
         search_mode="multi",
         error=result.get("error"),
     )
+    items = [
+        _external_result_item(item, index + 1)
+        for index, item in enumerate(result["results"])
+    ]
+
     return jsonify({
         "query": query,
         "results": result["results"],
         "count": len(result["results"]),
+        "items": items,
+        "page": 1,
+        "per_page": len(items) or 10,
+        "total": len(items),
+        "search_mode": "external",
         "source": "multi",
         "error": result.get("error"),
     })

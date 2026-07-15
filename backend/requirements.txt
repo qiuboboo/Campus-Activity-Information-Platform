@@ -9,6 +9,7 @@ python-dotenv
 redis
 requests
 beautifulsoup4
+lxml
 numpy
 mcp
 Pillow

@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import urlparse
 from urllib.parse import urljoin
 
 import requests
@@ -210,6 +211,10 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
 
     is_official = ds.source_level == "official"
     allowed_domains = ds.get_allowed_domains()
+    if ds.crawl_mode == "basic" and not allowed_domains:
+        hostname = urlparse(ds.base_url).hostname
+        if hostname:
+            allowed_domains = [hostname]
     interval = ds.request_interval or current_app.config.get("CRAWL_REQUEST_INTERVAL", 2)
     max_pages = current_app.config.get("CRAWL_MAX_PAGES", 50)
 

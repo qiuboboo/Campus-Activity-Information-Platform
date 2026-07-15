@@ -5,6 +5,7 @@
 export const DEMO_USER = {
   id: 1,
   username: 'admin',
+  email: 'admin@example.com',
   role: 'admin',
   created_at: '2026-01-01T00:00:00',
 }
@@ -12,18 +13,42 @@ export const DEMO_USER = {
 export const REGULAR_USER = {
   id: 2,
   username: 'zhangsan',
+  email: 'zhangsan@example.com',
   role: 'publisher',
   created_at: '2026-03-15T00:00:00',
 }
 
 export const VERIFICATION_CODES = {}
+export const CAPTCHA_CODES = {}
 export const REGISTERED_USERS = {}
+export const SESSIONS = {}
+export const UPLOADS = new Map()
 let _nextUserId = 3
 export function getNextUserId() {
   return _nextUserId++
 }
+let _nextActivityId = 10
+export function getNextActivityId() { return _nextActivityId++ }
+let _nextUploadId = 1
+export function getNextUploadId() { return String(_nextUploadId++) }
 
-export const POSTERS = [
+export const USER_STATE = {
+  favorites: { 1: [1, 3], 2: [2] },
+  registrations: {},
+  subscriptions: { 1: [{ id: 1, keyword: '人工智能', created_at: '2026-05-20T08:00:00' }], 2: [] },
+  notifications: { 1: [{ id: 1, title: '新活动待审核', body: '有 1 条活动等待审核。', read: false, created_at: '2026-05-25T09:00:00' }], 2: [{ id: 2, title: '活动提醒', body: '校园十大歌手决赛将在本周举行。', read: false, created_at: '2026-05-24T09:00:00' }] },
+}
+
+export const DATA_SOURCES = [
+  { id: 1, name: '中山大学新闻网', url: 'https://www.sysu.edu.cn', enabled: true, last_status: '2026-05-24 抓取成功' },
+  { id: 2, name: '校园讲座公告', url: 'https://lecture.sysu.edu.cn', enabled: true, last_status: '2026-05-23 抓取成功' },
+]
+
+export const AUDIT_LOGS = [
+  { id: 1, created_at: '2026-05-24T10:00:00', actor: 'admin', action: 'approve', target: '活动 #1', summary: '批准中山大学第12届学术科技节' },
+]
+
+export const ACTIVITIES = [
   // ---- 已发布（published） ----
   {
     id: 1,
@@ -132,6 +157,7 @@ export const POSTERS = [
     organizer: '学生社团联合会',
     status: 'draft',
     activity_type: '其他',
+    created_by: 2,
     created_at: '2026-05-22T12:00:00',
   },
 ]
@@ -153,7 +179,12 @@ export const CALENDAR_EVENTS = {
 
 export function resetDb() {
   Object.keys(VERIFICATION_CODES).forEach((k) => delete VERIFICATION_CODES[k])
+  Object.keys(CAPTCHA_CODES).forEach((k) => delete CAPTCHA_CODES[k])
   Object.keys(REGISTERED_USERS).forEach((k) => delete REGISTERED_USERS[k])
+  Object.keys(SESSIONS).forEach((k) => delete SESSIONS[k])
+  UPLOADS.clear()
   _nextUserId = 3
-  POSTERS.length = 0
+  _nextActivityId = 10
+  _nextUploadId = 1
+  ACTIVITIES.length = 0
 }

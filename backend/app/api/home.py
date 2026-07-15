@@ -25,6 +25,7 @@ def featured():
                 "organizer": p.organizer,
                 "activity_type": p.activity_type,
                 "created_at": p.created_at.isoformat(),
+                "cover_image_url": p.cover_image_url,
             }
             for p in posters
         ]

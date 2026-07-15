@@ -3,6 +3,7 @@ import time
 import uuid
 
 from flask import Flask, jsonify, request
+from sqlalchemy import inspect, text
 from werkzeug.exceptions import HTTPException
 
 from .config import Config
@@ -13,11 +14,23 @@ from .utils.ratelimit import limiter
 logger = logging.getLogger(__name__)
 
 
+def _ensure_schema_compatibility() -> None:
+    inspector = inspect(db.engine)
+    if "posters" not in inspector.get_table_names():
+        return
+
+    poster_columns = {column["name"] for column in inspector.get_columns("posters")}
+    if "cover_image_url" not in poster_columns:
+        db.session.execute(text("ALTER TABLE posters ADD COLUMN cover_image_url TEXT"))
+        db.session.commit()
+
+
 def init_database(app: Flask) -> None:
     """Create tables and seed default admin. Safe for single-process call."""
     with app.app_context():
         if app.config["AUTO_CREATE_TABLES"]:
             db.create_all()
+            _ensure_schema_compatibility()
             ensure_default_admin()
 
 
@@ -68,6 +81,7 @@ def _register_blueprints(app: Flask) -> None:
     """Register all API blueprints with consistent URL prefixes."""
 
     from .api.ai import ai_bp
+    from .api.activities import activities_bp
     from .api.audit_logs import audit_logs_bp
     from .api.auth import auth_bp
     from .api.calendar import calendar_bp
@@ -78,12 +92,15 @@ def _register_blueprints(app: Flask) -> None:
     from .api.home import home_bp
     from .api.knowledge import knowledge_bp
     from .api.posters import posters_bp
+    from .api.profile import profile_bp
     from .api.search import search_bp
     from .api.subscriptions import subscriptions_bp
     from .api.tasks import tasks_bp
+    from .api.uploads import uploads_bp
 
     # Blueprints with their own namespace in route paths (e.g. /data-sources, /ai/status)
     app.register_blueprint(ai_bp, url_prefix="/api")
+    app.register_blueprint(activities_bp, url_prefix="/api/activities")
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(home_bp, url_prefix="/api")
     app.register_blueprint(data_sources_bp, url_prefix="/api")
@@ -91,6 +108,8 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp, url_prefix="/api")
     app.register_blueprint(export_bp, url_prefix="/api")
     app.register_blueprint(calendar_bp, url_prefix="/api")
+    app.register_blueprint(profile_bp, url_prefix="/api")
+    app.register_blueprint(uploads_bp, url_prefix="/api")
 
     # Blueprints with clean internal routes (prefix provides namespace)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")

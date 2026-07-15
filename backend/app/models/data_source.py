@@ -40,6 +40,7 @@ class DataSource(TimestampMixin, db.Model):
             "id": self.id,
             "name": self.name,
             "base_url": self.base_url,
+            "url": self.base_url,
             "list_selector": self.list_selector,
             "content_selector": self.content_selector,
             "enabled": self.enabled,
@@ -52,6 +53,9 @@ class DataSource(TimestampMixin, db.Model):
             "last_success_at": self.last_success_at.isoformat() if self.last_success_at else None,
             "last_failure_at": self.last_failure_at.isoformat() if self.last_failure_at else None,
             "last_error_message": self.last_error_message,
+            "last_status": self.last_error_message or (
+                "抓取成功" if self.last_success_at else "尚未抓取"
+            ),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

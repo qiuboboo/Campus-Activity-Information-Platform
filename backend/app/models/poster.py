@@ -24,6 +24,7 @@ class Poster(TimestampMixin, db.Model):
     tags = db.Column(db.Text, nullable=True)
     activity_type = db.Column(db.String(50), nullable=True)
     content_html = db.Column(db.Text, nullable=True)
+    cover_image_url = db.Column(db.Text, nullable=True)
     last_crawled_at = db.Column(db.DateTime, nullable=True)
     embedding = db.Column(db.Text, nullable=True)
 
@@ -72,6 +73,7 @@ class Poster(TimestampMixin, db.Model):
             "tags": self.tags,
             "activity_type": self.activity_type,
             "content_html": self.content_html,
+            "cover_image_url": self.cover_image_url,
             "last_crawled_at": self.last_crawled_at.isoformat() if self.last_crawled_at else None,
             "embedding": self.embedding,
         }

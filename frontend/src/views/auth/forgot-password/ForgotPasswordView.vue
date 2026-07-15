@@ -1,0 +1,5 @@
+<script setup lang="ts">
+import { ref } from 'vue'; import { ElMessage } from 'element-plus'; import AuthLayout from '@/components/AuthLayout.vue'; import { requestPasswordReset } from '@/api/auth'
+const email=ref('');const submitting=ref(false);async function submit(){if(!/^\S+@\S+\.\S+$/.test(email.value)){ElMessage.warning('请输入有效邮箱');return}submitting.value=true;try{const {data}=await requestPasswordReset(email.value);ElMessage[data.implemented===false?'warning':'success'](data.message || '请求已提交')}catch{}finally{submitting.value=false}}
+</script>
+<template><AuthLayout><div class="forgot"><h2>重置密码</h2><p>输入注册邮箱，我们会发送重置说明。</p><el-input v-model="email" size="large" placeholder="邮箱地址" @keyup.enter="submit"/><el-button type="primary" size="large" :loading="submitting" @click="submit">发送重置说明</el-button><router-link to="/auth/login">返回登录</router-link></div></AuthLayout></template><style scoped>.forgot{display:grid;gap:18px;text-align:center}.forgot h2{margin:0}.forgot p{color:#66736d}.forgot a{color:var(--brand)}</style>

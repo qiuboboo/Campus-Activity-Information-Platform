@@ -5,12 +5,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      CAPTCHA_E2E_BYPASS: "1"
     ports:
       - "127.0.0.1:5000:5000"
     depends_on:
       - postgres
       - redis
-      - copilot-proxy
     deploy:
       resources:
         limits:
@@ -24,6 +25,8 @@ services:
       POSTGRES_DB: campus_activity
       POSTGRES_USER: campus
       POSTGRES_PASSWORD: campus123456
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     deploy:
@@ -73,6 +76,8 @@ services:
     image: redis:7
     container_name: campus-activity-redis
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     deploy:

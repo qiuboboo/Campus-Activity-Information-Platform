@@ -1,31 +1,33 @@
 <template>
   <aside class="side-left">
     <nav class="side-nav">
-      <div
+      <button
         v-for="item in navItems"
         :key="item.key"
+        type="button"
         class="side-nav-item"
         :class="{ active: activeNav === item.key }"
         @click="$emit('selectNav', item.key)"
       >
         <el-icon><component :is="item.icon" /></el-icon>
         <span>{{ item.label }}</span>
-      </div>
+      </button>
     </nav>
 
     <div class="side-divider"></div>
     <div class="side-section-title">分类入口</div>
     <div class="side-categories">
-      <div
+      <button
         v-for="cat in activityTypeList.slice(0, 6)"
         :key="cat"
+        type="button"
         class="side-cat-item"
         :class="{ active: selectedCategoryId === cat }"
         @click="$emit('selectCategory', cat)"
       >
         <span class="side-cat-dot"></span>
         <span>{{ cat }}</span>
-      </div>
+      </button>
     </div>
   </aside>
 </template>
@@ -85,6 +87,10 @@ defineEmits<{
   font-weight: 500;
   color: #606266;
   transition: all 0.2s;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
 }
 
 .side-nav-item:hover {
@@ -134,6 +140,10 @@ defineEmits<{
   font-size: 13px;
   color: #606266;
   transition: all 0.2s;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
 }
 
 .side-cat-item:hover {

@@ -145,7 +145,7 @@ def review_poster(poster_id: int):
     poster = Poster.query.get_or_404(poster_id)
     payload = request.get_json(silent=True) or {}
     action = (payload.get("action") or "").strip().lower()
-    comment = (payload.get("comment") or "").strip()
+    comment = (payload.get("comment") or payload.get("reason") or "").strip()
 
     if action not in {"approve", "reject"}:
         return jsonify({"message": "action must be approve or reject"}), 400

@@ -11,9 +11,12 @@
 
     <div class="cal-grid">
       <div v-for="wd in weekDays" :key="wd" class="cal-cell cal-weekday">{{ wd }}</div>
-      <div
+      <button
         v-for="(day, idx) in calendarDays"
         :key="idx"
+        type="button"
+        :disabled="!day.isCurrentMonth"
+        :aria-label="`${day.date.getFullYear()}年${day.date.getMonth() + 1}月${day.date.getDate()}日${day.isCurrentMonth ? '' : '，非当前月份'}`"
         class="cal-cell cal-day"
         :class="{
           'cal-other': !day.isCurrentMonth,
@@ -23,7 +26,7 @@
         @click="$emit('selectDate', day.date)"
       >
         {{ day.date.getDate() }}
-      </div>
+      </button>
     </div>
   </div>
 
@@ -32,7 +35,8 @@
       <el-icon><Sunny /></el-icon>
       <span>{{ selectedDate.toLocaleDateString('zh-CN') }} 日程</span>
     </div>
-    <div class="schedule-list" v-if="scheduleItems.length > 0">
+    <div v-if="scheduleError" class="schedule-error"><el-alert type="error" :title="scheduleError" :closable="false" show-icon><template #default><el-button text type="primary" @click="$emit('retrySchedule')">重试</el-button></template></el-alert></div>
+    <div class="schedule-list" v-else-if="scheduleItems.length > 0">
       <div v-for="(s, idx) in scheduleItems" :key="idx" class="schedule-item">
         <div class="schedule-time">{{ s.time }}</div>
         <div class="schedule-dot" :class="`dot-${s.type}`"></div>
@@ -54,13 +58,15 @@ defineProps<{
   weekDays: string[]
   calendarDays: { date: Date; isCurrentMonth: boolean; isToday: boolean; isSelected: boolean }[]
   selectedDate: Date
-  scheduleItems: { time: string; title: string; type: string }[]
+  scheduleItems: { time: string; title: string; type: string; activity_id?: number }[]
+  scheduleError?: string
 }>()
 
 defineEmits<{
   (e: 'prevMonth'): void
   (e: 'nextMonth'): void
   (e: 'selectDate', date: Date): void
+  (e: 'retrySchedule'): void
 }>()
 </script>
 
@@ -99,6 +105,8 @@ defineEmits<{
   padding: 6px 0;
   font-size: 13px;
   border-radius: 8px;
+  border: 0;
+  background: transparent;
 }
 
 .cal-weekday {
@@ -120,7 +128,7 @@ defineEmits<{
 
 .cal-other {
   color: #d0d0d0;
-  pointer-events: none;
+  cursor: default;
 }
 
 .cal-today {
@@ -183,4 +191,5 @@ defineEmits<{
 .schedule-empty {
   padding: 12px 0;
 }
+.schedule-error { padding: 4px 0; }
 </style>

@@ -10,6 +10,20 @@ from ..services.calendar_service import generate_ics
 calendar_bp = Blueprint("calendar", __name__)
 
 
+def _calendar_event_payload(event: UserCalendarEvent) -> dict:
+    poster = event.poster
+    event_time = poster.event_time if poster else None
+    return {
+        "id": event.id,
+        "activity_id": event.poster_id,
+        "title": poster.title if poster else "",
+        "type": poster.activity_type if poster and poster.activity_type else "activity",
+        "date": event_time.date().isoformat() if event_time else None,
+        "time": event_time.strftime("%H:%M") if event_time else "",
+        "event_time": event_time.isoformat() if event_time else None,
+    }
+
+
 # ---------------------------------------------------------------------------
 # ICS download (public, no auth required)
 # ---------------------------------------------------------------------------
@@ -55,12 +69,20 @@ def add_calendar_event():
         user_id=user_id, poster_id=poster_id
     ).first()
     if existing:
-        return jsonify({"item": existing.to_dict()}), 200
+        return jsonify({
+            "item": existing.to_dict(),
+            "event": _calendar_event_payload(existing),
+            "already_added": True,
+        }), 200
 
     event = UserCalendarEvent(user_id=user_id, poster_id=poster_id)
     db.session.add(event)
     db.session.commit()
-    return jsonify({"item": event.to_dict()}), 201
+    return jsonify({
+        "item": event.to_dict(),
+        "event": _calendar_event_payload(event),
+        "already_added": False,
+    }), 201
 
 
 @calendar_bp.get("/calendar/events")
@@ -76,6 +98,7 @@ def list_calendar_events():
     )
     return jsonify({
         "items": [e.to_dict() for e in events],
+        "events": [_calendar_event_payload(e) for e in events],
         "total": len(events),
     })
 

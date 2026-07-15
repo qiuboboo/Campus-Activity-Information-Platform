@@ -68,14 +68,23 @@ def _auto_summary(raw_text: str) -> str:
 
 
 def build_poster_fields(payload: dict, fallback=None) -> dict:
-    raw_text = (payload.get("raw_text") or getattr(fallback, "raw_text", "")).strip()
-    title = (payload.get("title") or getattr(fallback, "title", "")).strip() or _auto_title(raw_text)
-    summary = (payload.get("summary") or getattr(fallback, "summary", "")).strip() or _auto_summary(raw_text)
-    location = (payload.get("location") or getattr(fallback, "location", "") or "").strip() or None
-    organizer = (payload.get("organizer") or getattr(fallback, "organizer", "") or "").strip() or None
-    source_type = (payload.get("source_type") or getattr(fallback, "source_type", "manual")).strip() or "manual"
-    source_url = (payload.get("source_url") or getattr(fallback, "source_url", "") or "").strip() or None
-    status = (payload.get("status") or getattr(fallback, "status", "draft")).strip() or "draft"
+    def text_value(key: str, default: str = "") -> str:
+        value = payload.get(key)
+        if value is None and fallback is not None:
+            value = getattr(fallback, key, None)
+        if value is None:
+            value = default
+        return str(value).strip()
+
+    raw_text = text_value("raw_text")
+    title = text_value("title") or _auto_title(raw_text)
+    summary = text_value("summary") or _auto_summary(raw_text)
+    location = text_value("location") or None
+    organizer = text_value("organizer") or None
+    source_type = text_value("source_type", "manual") or "manual"
+    source_url = text_value("source_url") or None
+    cover_image_url = text_value("cover_image_url") or None
+    status = text_value("status", "draft") or "draft"
 
     event_time_input = payload.get("event_time", getattr(fallback, "event_time", None))
     event_time = _parse_datetime(event_time_input) if event_time_input else None
@@ -90,6 +99,7 @@ def build_poster_fields(payload: dict, fallback=None) -> dict:
         "status": status,
         "source_type": source_type,
         "source_url": source_url,
+        "cover_image_url": cover_image_url,
     }
 
 

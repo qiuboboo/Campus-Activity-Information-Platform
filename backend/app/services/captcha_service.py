@@ -1,4 +1,5 @@
 import io
+import os as _os
 import random
 import string
 import uuid
@@ -6,6 +7,10 @@ import uuid
 from flask import current_app
 
 from ..extensions import create_redis_client
+
+
+def _env(key: str) -> str:
+    return _os.getenv(key, "")
 
 _CAPTCHA_TTL = 300  # 5 minutes
 _CAPTCHA_LENGTH = 4
@@ -76,8 +81,9 @@ def create_captcha() -> tuple[str, bytes]:
     The caller returns the image to the client; the client must submit
     both the token and the user-entered code when logging in.
     """
-    # Bypass captcha generation in test mode — Redis may not be available
-    if current_app.config.get("TESTING", False):
+    # Bypass captcha in test/e2e mode — Redis may not be available (pytest)
+    # or we want a predictable code (Playwright e2e against real Docker)
+    if current_app.config.get("TESTING", False) or _env("CAPTCHA_E2E_BYPASS") == "1":
         from io import BytesIO
 
         from PIL import Image
@@ -85,7 +91,7 @@ def create_captcha() -> tuple[str, bytes]:
         img = Image.new("RGB", (1, 1), (255, 255, 255))
         buf = BytesIO()
         img.save(buf, format="PNG")
-        return ("test-captcha-token-00000000000000", buf.getvalue())
+        return ("e2e-captcha-bypass-token", buf.getvalue())
 
     code = _generate_code()
     image_bytes = _draw_captcha(code)
@@ -99,8 +105,8 @@ def create_captcha() -> tuple[str, bytes]:
 
 def validate_captcha(token: str, code: str) -> bool:
     """Verify a CAPTCHA answer.  One-time use — deletes the key regardless."""
-    # Bypass captcha in test mode so integration tests don't need Redis
-    if current_app.config.get("TESTING", False):
+    # Bypass captcha in test/e2e mode
+    if current_app.config.get("TESTING", False) or _env("CAPTCHA_E2E_BYPASS") == "1":
         return True
 
     if not token or not code:

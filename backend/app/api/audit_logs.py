@@ -7,6 +7,19 @@ from ..utils.auth import roles_required
 audit_logs_bp = Blueprint("audit_logs", __name__)
 
 
+def _audit_log_payload(log: AuditLog) -> dict:
+    data = log.to_dict()
+    actor_name = log.actor.username if log.actor else f"用户 #{log.actor_id}"
+    target = data.get("target_type") or "system"
+    if data.get("target_id") is not None:
+        target = f"{target} #{data['target_id']}"
+    data.update({
+        "actor": actor_name,
+        "target": target,
+    })
+    return data
+
+
 @audit_logs_bp.get("")
 @roles_required("admin")
 def list_audit_logs():
@@ -27,7 +40,7 @@ def list_audit_logs():
 
     items = query.paginate(page=page, per_page=per_page, error_out=False)
     return jsonify({
-        "items": [log.to_dict() for log in items.items],
+        "items": [_audit_log_payload(log) for log in items.items],
         "page": page,
         "per_page": per_page,
         "total": items.total,

@@ -36,7 +36,7 @@ def get_all():
 def create():
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
-    base_url = data.get("base_url", "").strip()
+    base_url = (data.get("base_url") or data.get("url") or "").strip()
 
     if not name:
         return jsonify({"error": "name is required"}), 400
@@ -84,7 +84,7 @@ def update(source_id: int):
         ds = update_data_source(
             source_id,
             name=data.get("name"),
-            base_url=data.get("base_url"),
+            base_url=data.get("base_url") or data.get("url"),
             list_selector=data.get("list_selector"),
             content_selector=data.get("content_selector"),
             crawl_mode=data.get("crawl_mode"),
@@ -98,6 +98,25 @@ def update(source_id: int):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+    return jsonify(ds.to_dict())
+
+
+@data_sources_bp.route("/data-sources/<int:source_id>", methods=["PATCH"])
+@roles_required("admin")
+def patch(source_id: int):
+    ds = get_data_source(source_id)
+    if ds is None:
+        return jsonify({"error": "Data source not found"}), 404
+    data = request.get_json(force=True)
+    try:
+        ds = update_data_source(
+            source_id,
+            name=data.get("name"),
+            base_url=data.get("base_url") or data.get("url"),
+            enabled=data.get("enabled"),
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     return jsonify(ds.to_dict())
 
 

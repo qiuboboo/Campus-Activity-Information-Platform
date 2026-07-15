@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { onBeforeUnmount, ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { registerWithEmail, sendVerificationCode } from "@/api/auth";
 import { ElMessage } from "element-plus";
 import type { FormInstance, FormRules } from "element-plus";
 import AuthLayout from "@/components/AuthLayout.vue"
 import { passwordRules } from "@/utils/authRules"
+import CaptchaField from '@/components/CaptchaField.vue'
 
 const router = useRouter();
 
@@ -23,6 +24,8 @@ const form = reactive({
   verificationCode: "",
   password: "",
   confirmPassword: "",
+  captchaCode: '',
+  captchaToken: '',
 });
 
 const rules: FormRules = {
@@ -39,6 +42,7 @@ const rules: FormRules = {
     { required: true, message: "请输入验证码", trigger: "blur" },
     { len: 6, message: "验证码为 6 位数字", trigger: "blur" },
   ],
+  captchaCode: [{ required: true, message: '请输入图形验证码', trigger: 'blur' }],
   password: passwordRules,
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },
@@ -88,6 +92,10 @@ function startCountdown() {
   }, 1000);
 }
 
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+})
+
 async function handleRegister() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -99,6 +107,8 @@ async function handleRegister() {
       password: form.password,
       email: form.email,
       verification_code: form.verificationCode,
+      captcha_token: form.captchaToken,
+      captcha_code: form.captchaCode,
     });
     ElMessage.success("注册成功，请登录");
     router.push("/auth/login");
@@ -219,6 +229,10 @@ async function handleRegister() {
             {{ countdown > 0 ? `${countdown}s 后重新发送` : "获取验证码" }}
           </el-button>
         </div>
+      </el-form-item>
+
+      <el-form-item label="图形验证码" prop="captchaCode">
+        <CaptchaField v-model="form.captchaCode" @challenge="form.captchaToken = $event" @submit="handleRegister" />
       </el-form-item>
 
       <div style="text-align:center;margin:8px 0 12px">

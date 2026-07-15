@@ -75,6 +75,10 @@ def demo_summary():
         }
 
     return jsonify({
+        "pending": Poster.query.filter_by(status="pending_review").count(),
+        "published": published,
+        "sources": total_sources,
+        "failed_tasks": 0,
         "posters": {
             "total": total_posters,
             "published": published,

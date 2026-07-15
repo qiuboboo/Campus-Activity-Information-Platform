@@ -39,7 +39,8 @@ def create_subscription():
         keyword=keyword or None,
     ).first()
     if existing:
-        return jsonify({"item": existing.to_dict()}), 200
+        data = existing.to_dict()
+        return jsonify({**data, "item": data}), 200
 
     sub = Subscription(
         user_id=user_id,
@@ -49,7 +50,8 @@ def create_subscription():
     )
     db.session.add(sub)
     db.session.commit()
-    return jsonify({"item": sub.to_dict()}), 201
+    data = sub.to_dict()
+    return jsonify({**data, "item": data}), 201
 
 
 @subscriptions_bp.get("")

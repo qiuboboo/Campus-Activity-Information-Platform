@@ -6,16 +6,17 @@ import NavHeader from '@/components/NavHeader.vue'
 import NavSidebar from '@/components/NavSidebar.vue'
 import HomeCalendarCard from '@/components/HomeCalendarCard.vue'
 import FooterBar from '@/components/FooterBar.vue'
+import ActivityCover from '@/components/ActivityCover.vue'
 
 const {
   auth, router,
-  hotPosters, activityTypeList, loading, searchKeyword,
-  currentHotIndex, startHotCarousel,
+  hotActivities, recentActivities, activityTypeList, loading, error, scheduleError, searchKeyword,
+  currentHotIndex, isHotCarouselPaused, startHotCarousel, toggleHotCarousel,
   activeNav, selectNav,
   currentYear, currentMonth, selectedDate, weekDays,
-  calendarDays, prevMonth, nextMonth, selectDate, scheduleItems,
-  selectedCategoryId, categoryPosters, fetchCategoryPosters, selectCategory,
-  fetchData, formatTime, goPosterDetail, handleSearch, handleLogout, currentYearLabel
+  calendarDays, prevMonth, nextMonth, selectDate, selectedScheduleItems,
+  selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
+  fetchData, fetchSchedule, formatTime, goActivityDetail, handleSearch, handleLogout, currentYearLabel
 } = useHomePage()
 </script>
 
@@ -24,11 +25,16 @@ const {
     <NavHeader
       :search-keyword="searchKeyword"
       :is-logged-in="auth.isLoggedIn"
+      :is-publisher="auth.isPublisher"
+      :is-admin="auth.isAdmin"
       :username="auth.user?.username ?? null"
       @update:search-keyword="searchKeyword = $event"
       @search="handleSearch"
       @login="router.push('/auth/login')"
       @register="router.push('/auth/register')"
+      @profile="router.push('/profile')"
+      @my-activities="router.push('/my/activities')"
+      @admin="router.push('/admin')"
       @logout="handleLogout"
       @go-home="router.push('/')"
     />
@@ -43,44 +49,52 @@ const {
       />
 
       <main class="home-main">
-        <div class="hot-section" v-if="!loading">
+        <div id="section-hot" class="hot-section" v-if="!loading && !error">
           <div class="section-header">
             <h2 class="section-title">
               <el-icon class="section-title-icon"><TrendCharts /></el-icon>
               热门活动
             </h2>
-            <el-button text class="section-more" @click="ElMessage.info('功能建设中')">
+            <el-button text class="section-more" @click="router.push('/activities')">
               查看全部 <el-icon><ArrowRight /></el-icon>
             </el-button>
           </div>
-          <div v-if="hotPosters.length > 0" class="hot-carousel" @click="goPosterDetail(hotPosters[currentHotIndex].id)">
+          <article v-if="hotActivities.length > 0" class="hot-carousel" aria-label="热门活动轮播">
+            <div class="hc-cover">
+              <ActivityCover
+                :src="hotActivities[currentHotIndex].cover_image_url"
+                :category="hotActivities[currentHotIndex].activity_type"
+                :alt="hotActivities[currentHotIndex].title"
+              />
+            </div>
             <div class="hc-card">
               <div class="hc-badge">
                 <el-tag
-                  :type="hotPosters[currentHotIndex].activity_type ? 'success' : 'info'"
+                  :type="hotActivities[currentHotIndex].activity_type ? 'success' : 'info'"
                   size="small" effect="plain" round
                 >
-                  {{ hotPosters[currentHotIndex].activity_type || '活动' }}
+                  {{ hotActivities[currentHotIndex].activity_type || '活动' }}
                 </el-tag>
               </div>
-              <h3 class="hc-title">{{ hotPosters[currentHotIndex].title }}</h3>
+              <h3 class="hc-title">{{ hotActivities[currentHotIndex].title }}</h3>
               <p class="hc-summary">
-                {{ hotPosters[currentHotIndex].summary || hotPosters[currentHotIndex].raw_text?.substring(0, 80) || '暂无简介' }}
+                {{ hotActivities[currentHotIndex].summary || hotActivities[currentHotIndex].raw_text?.substring(0, 80) || '暂无简介' }}
               </p>
               <div class="hc-meta">
-                <span><el-icon size="14"><User /></el-icon> {{ hotPosters[currentHotIndex].organizer || '未知' }}</span>
-                <span><el-icon size="14"><Clock /></el-icon> {{ formatTime(hotPosters[currentHotIndex].event_time) }}</span>
-                <span><el-icon size="14"><Location /></el-icon> {{ hotPosters[currentHotIndex].location || '待定' }}</span>
+                <span><el-icon size="14"><User /></el-icon> {{ hotActivities[currentHotIndex].organizer || '未知' }}</span>
+                <span><el-icon size="14"><Clock /></el-icon> {{ formatTime(hotActivities[currentHotIndex].event_time) }}</span>
+                <span><el-icon size="14"><Location /></el-icon> {{ hotActivities[currentHotIndex].location || '待定' }}</span>
               </div>
             </div>
-            <div class="hc-dots" v-if="hotPosters.length > 1">
-              <span
-                v-for="(_, i) in hotPosters" :key="i"
-                class="hc-dot" :class="{ active: i === currentHotIndex }"
+            <div class="hc-dots" v-if="hotActivities.length > 1">
+              <button
+                v-for="(_, i) in hotActivities" :key="i"
+                class="hc-dot" :class="{ active: i === currentHotIndex }" :aria-label="`显示第 ${i + 1} 条热门活动`" :aria-current="i === currentHotIndex ? 'true' : undefined"
                 @click.stop="currentHotIndex = i; startHotCarousel()"
-              ></span>
+              ></button>
             </div>
-          </div>
+            <div class="hc-actions"><el-button type="primary" @click="goActivityDetail(hotActivities[currentHotIndex].id)">查看活动</el-button><el-button v-if="hotActivities.length > 1" text @click="toggleHotCarousel">{{ isHotCarouselPaused ? '恢复轮播' : '暂停轮播' }}</el-button></div>
+          </article>
           <div v-else class="hot-empty">
             <el-empty :image-size="80" description="暂无活动" />
           </div>
@@ -101,6 +115,7 @@ const {
               </div>
             </section>
           </template>
+          <section v-else-if="error" class="home-error"><el-result icon="error" title="活动加载失败" :sub-title="error"><template #extra><el-button type="primary" @click="fetchData">重试</el-button></template></el-result></section>
           <template v-else>
             <section class="content-section" id="section-categories">
               <div class="section-header">
@@ -110,7 +125,7 @@ const {
                 </h2>
               </div>
               <div class="category-tabs">
-                <el-radio-group v-model="selectedCategoryId" @change="fetchCategoryPosters">
+                <el-radio-group v-model="selectedCategoryId" @change="fetchCategoryActivities">
                   <el-radio-button value="recent">最近</el-radio-button>
                   <el-radio-button v-for="cat in activityTypeList" :key="cat" :value="cat">
                     {{ cat }}
@@ -119,8 +134,8 @@ const {
               </div>
             </section>
             <div class="cat-scroll-body">
-              <div class="cat-poster-list" v-if="categoryPosters.length > 0">
-                <div v-for="p in categoryPosters" :key="p.id" class="cat-poster-item" @click="goPosterDetail(p.id)">
+              <div class="cat-activity-list" v-if="categoryActivities.length > 0">
+                <button v-for="p in categoryActivities" :key="p.id" type="button" class="cat-activity-item" @click="goActivityDetail(p.id)">
                   <div class="cpi-left">
                     <div class="cpi-title">{{ p.title }}</div>
                     <div class="cpi-meta">
@@ -133,13 +148,13 @@ const {
                       {{ p.activity_type || '活动' }}
                     </el-tag>
                   </div>
-                </div>
+                </button>
               </div>
-              <div v-else class="cat-poster-empty">
+              <div v-else class="cat-activity-empty">
                 <el-empty :image-size="80" description="该类别暂无活动" />
               </div>
             </div>
-            <section class="content-section" v-if="hotPosters.length === 0 && recentPosters.length === 0">
+            <section class="content-section" v-if="hotActivities.length === 0 && recentActivities.length === 0">
               <div class="empty-state">
                 <el-empty description="暂无活动数据，请稍后再来">
                   <el-button type="primary" @click="fetchData">刷新</el-button>
@@ -157,10 +172,12 @@ const {
           :week-days="weekDays"
           :calendar-days="calendarDays"
           :selected-date="selectedDate"
-          :schedule-items="scheduleItems"
+          :schedule-items="selectedScheduleItems"
+          :schedule-error="scheduleError"
           @prev-month="prevMonth"
           @next-month="nextMonth"
           @select-date="selectDate"
+          @retry-schedule="fetchSchedule"
         />
       </aside>
     </div>
@@ -263,14 +280,14 @@ const {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.hot-carousel, .cat-poster-item { animation: card-in 0.5s ease-out both; }
+.hot-carousel, .cat-activity-item { animation: card-in 0.5s ease-out both; }
 .hot-carousel { animation-delay: 0s; }
-.cat-poster-item:nth-child(1) { animation-delay: 0.05s; }
-.cat-poster-item:nth-child(2) { animation-delay: 0.1s; }
-.cat-poster-item:nth-child(3) { animation-delay: 0.15s; }
-.cat-poster-item:nth-child(4) { animation-delay: 0.2s; }
-.cat-poster-item:nth-child(5) { animation-delay: 0.25s; }
-.cat-poster-item:nth-child(6) { animation-delay: 0.3s; }
+.cat-activity-item:nth-child(1) { animation-delay: 0.05s; }
+.cat-activity-item:nth-child(2) { animation-delay: 0.1s; }
+.cat-activity-item:nth-child(3) { animation-delay: 0.15s; }
+.cat-activity-item:nth-child(4) { animation-delay: 0.2s; }
+.cat-activity-item:nth-child(5) { animation-delay: 0.25s; }
+.cat-activity-item:nth-child(6) { animation-delay: 0.3s; }
 
 /* ---- 骨架屏 ---- */
 .skeleton-title {
@@ -310,12 +327,14 @@ const {
 .hot-carousel {
   background: #fff;
   border-radius: 14px;
-  padding: 28px 32px 20px;
-  cursor: pointer;
+  padding: 0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
   border-left: 4px solid #27a66b;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .hot-carousel:hover {
@@ -328,6 +347,13 @@ const {
   min-height: 180px; background: #fff;
   border: 1px dashed #d8dee9; border-radius: 14px;
 }
+
+.hc-cover {
+  min-height: 210px;
+  display: grid;
+  font-size: 24px;
+}
+.hc-card { padding: 28px 32px 20px; min-width: 0; }
 
 .hc-badge { margin-bottom: 12px; }
 
@@ -350,11 +376,12 @@ const {
 
 .hc-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #d0d0d0; cursor: pointer; transition: all 0.25s;
+  background: #d0d0d0; cursor: pointer; transition: all 0.25s; border: 0; padding: 0;
 }
 
 .hc-dot.active { background: #27a66b; width: 24px; border-radius: 4px; }
 .hc-dot:hover { background: #27a66b; }
+.hc-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 
 /* ---- 分类标签 ---- */
 .category-tabs {
@@ -367,17 +394,20 @@ const {
 .category-tabs :deep(.el-radio-group) { display: inline-flex; gap: 0; flex-wrap: nowrap; }
 .category-tabs :deep(.el-radio-button__inner) { font-size: 13px; padding: 8px 16px; border-color: #e8e8e8; }
 
-.cat-poster-list { display: flex; flex-direction: column; gap: 8px; }
+.cat-activity-list { display: flex; flex-direction: column; gap: 8px; }
 
-.cat-poster-item {
+.cat-activity-item {
   background: #fff; border-radius: 12px;
   padding: 16px 20px;
   display: flex; align-items: center; justify-content: space-between;
   cursor: pointer; transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  border: 0;
+  width: 100%;
+  text-align: left;
 }
 
-.cat-poster-item:hover { background: #f5fcf8; transform: translateX(4px); }
+.cat-activity-item:hover { background: #f5fcf8; transform: translateX(4px); }
 
 .cpi-left { flex: 1; min-width: 0; }
 
@@ -390,9 +420,10 @@ const {
 .cpi-meta { font-size: 12px; color: #909399; display: flex; gap: 16px; }
 .cpi-meta span { display: flex; align-items: center; gap: 4px; }
 .cpi-tag { flex-shrink: 0; margin-left: 12px; }
-.cat-poster-empty { padding: 24px 0; }
+.cat-activity-empty { padding: 24px 0; }
 
 .empty-state { background: #fff; border-radius: 14px; padding: 40px 0; }
+.home-error { background: #fff; border-radius: 14px; }
 
 /* ---- 右侧辅助栏容器 ---- */
 .side-right {
@@ -411,16 +442,21 @@ const {
 }
 
 @media (max-width: 768px) {
+  .home-page { height: auto; min-height: 100svh; overflow: visible; }
+  .home-body,.home-main,.category-scroll { overflow: visible; }
+  .cat-scroll-body { overflow: visible; }
   .side-left { display: none; }
   .home-body { padding: 16px 16px 0; flex-direction: column; }
   .section-title { font-size: 17px; }
   .hc-summary { font-size: 13px; }
+  .hot-carousel { grid-template-columns: 1fr; }
+  .hc-cover { min-height: 140px; }
 }
 
 @media (max-width: 480px) {
   .home-body { padding: 12px; }
   .category-tabs :deep(.el-radio-button__inner) { padding: 6px 12px; font-size: 12px; }
-  .cat-poster-item { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .cat-activity-item { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
   .cpi-tag { margin-left: 0; }
 }
 </style>

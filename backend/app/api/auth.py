@@ -6,9 +6,9 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import User
-from ..utils.ratelimit import limiter
 from ..services.captcha_service import create_captcha, validate_captcha as _check_captcha
 from ..services.email_service import send_verification_code, verify_code as _check_code
+from ..utils.ratelimit import limiter
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -19,7 +19,6 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 @auth_bp.get("/captcha")
 @limiter.limit("30 per minute")
 def captcha_image():
-    """Return a CAPTCHA image (PNG).  The captcha_token is returned in a header."""
     from io import BytesIO
 
     token, image_bytes = create_captcha()
@@ -31,7 +30,6 @@ def captcha_image():
 @auth_bp.post("/send-code")
 @limiter.limit("5 per minute")
 def send_code():
-    """Send a 6-digit verification code to the given email address."""
     payload = request.get_json(silent=True) or {}
     email = (payload.get("email") or "").strip()
 
@@ -62,7 +60,6 @@ def register():
 
     if not username or not password:
         return jsonify({"message": "username and password are required"}), 400
-
     if not _check_captcha(captcha_token, captcha_code):
         return jsonify({"message": "invalid or missing captcha"}), 400
     if len(username) < 2 or len(username) > 50:
@@ -71,13 +68,11 @@ def register():
         return jsonify({"message": "password must be at least 6 characters"}), 400
     if role not in ("viewer", "publisher"):
         return jsonify({"message": "role must be 'viewer' or 'publisher'"}), 400
-
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "username already exists"}), 409
 
-    # Email + verification code check
     if current_app.config.get("TESTING", False):
-        pass  # skip email verification in tests
+        pass
     elif not email or not _EMAIL_RE.match(email):
         return jsonify({"message": "valid email is required"}), 400
     elif User.query.filter_by(email=email).first():
@@ -108,7 +103,6 @@ def login():
 
     if not login_input or not password:
         return jsonify({"message": "username/email and password are required"}), 400
-
     if not _check_captcha(captcha_token, captcha_code):
         return jsonify({"message": "invalid or missing captcha"}), 400
 
@@ -130,3 +124,31 @@ def login():
 def me():
     user = User.query.get_or_404(int(get_jwt_identity()))
     return jsonify({"user": user.to_dict()})
+
+
+@auth_bp.patch("/me")
+@jwt_required()
+def update_me():
+    user = User.query.get_or_404(int(get_jwt_identity()))
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip()
+    if email:
+        if not _EMAIL_RE.match(email):
+            return jsonify({"message": "invalid email address"}), 400
+        existing = User.query.filter(User.email == email, User.id != user.id).first()
+        if existing:
+            return jsonify({"message": "email already registered"}), 409
+        user.email = email
+    db.session.commit()
+    data = user.to_dict()
+    data["display_name"] = payload.get("display_name") or user.username
+    return jsonify({"user": data})
+
+
+@auth_bp.post("/forgot-password")
+@limiter.limit("5 per minute")
+def forgot_password():
+    return jsonify({
+        "message": "演示环境暂未接入真实邮件重置；如果该邮箱存在，正式环境会发送重置说明。",
+        "implemented": False,
+    })

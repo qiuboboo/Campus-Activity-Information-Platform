@@ -1,3 +1,17 @@
+:root {
+  --brand: #0d5e3c;
+  --brand-dark: #123b2a;
+  --brand-accent: #27a66b;
+  --brand-soft: #e8f5e9;
+  --surface-muted: #f5f7f6;
+  --surface-card: #fff;
+  --text-main: #25332d;
+  --text-muted: #66736d;
+  --line: #e2ece5;
+  --radius-card: 16px;
+  --shadow-card: 0 8px 24px rgb(19 59 42 / 6%);
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -25,6 +39,14 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+button, input, textarea, select { font: inherit; }
+
+:focus-visible { outline: 3px solid rgb(39 166 107 / 45%); outline-offset: 2px; }
+
+.surface-card { background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+.page-grid { display: grid; gap: 20px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 
 #app {
   width: 100%;
