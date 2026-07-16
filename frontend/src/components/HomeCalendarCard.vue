@@ -23,6 +23,7 @@
           'cal-today': day.isToday,
           'cal-selected': day.isSelected,
         }"
+        :style="{ backgroundColor: getHeat(day.date).bg || undefined, color: getHeat(day.date).color || undefined }"
         @click="$emit('selectDate', day.date)"
       >
         {{ day.date.getDate() }}
@@ -50,9 +51,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Calendar, Sunny } from '@element-plus/icons-vue'
+import { heatColor, heatTextColor } from '@/api/calendar'
 
-defineProps<{
+const props = defineProps<{
   currentYear: number
   currentMonth: number
   weekDays: string[]
@@ -60,6 +63,7 @@ defineProps<{
   selectedDate: Date
   scheduleItems: { time: string; title: string; type: string; activity_id?: number }[]
   scheduleError?: string
+  activityDates?: Record<string, number>
 }>()
 
 defineEmits<{
@@ -68,6 +72,19 @@ defineEmits<{
   (e: 'selectDate', date: Date): void
   (e: 'retrySchedule'): void
 }>()
+
+const heatStyles = computed(() => {
+  const map: Record<number, { bg: string; color: string }> = {}
+  if (!props.activityDates) return map
+  for (const [dateStr, count] of Object.entries(props.activityDates)) {
+    const ts = new Date(dateStr).getTime()
+    map[ts] = { bg: heatColor(count, false), color: heatTextColor(count) }
+  }
+  return map
+})
+
+function localDateKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+function getHeat(d: Date) { const h = heatStyles.value[d.getTime()]; return h || { bg: '', color: '' } }
 </script>
 
 <style scoped>
@@ -132,16 +149,16 @@ defineEmits<{
 }
 
 .cal-today {
-  background: #27a66b !important;
-  color: #fff !important;
+  color: #0d5e3c !important;
   font-weight: 700;
+  box-shadow: inset 0 0 0 2px #27a66b;
 }
 
 .cal-selected {
   background: #e8f5e9 !important;
   color: #0d5e3c !important;
   font-weight: 700;
-  outline: 2px solid #27a66b;
+  outline: 2px solid #0d5e3c;
   outline-offset: -2px;
 }
 

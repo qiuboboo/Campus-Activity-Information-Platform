@@ -55,6 +55,8 @@ export function useHomePage() {
   function selectNav(key: string) {
     activeNav.value = key
     if (key === 'all') { router.push('/activities'); return }
+    if (key === 'hot') { router.push('/activities?sort=event_time'); return }
+    if (key === 'categories') { router.push('/search'); return }
     if (key === 'my') {
       if (!auth.isLoggedIn) {
         router.push({ path: '/auth/login', query: { redirect: '/profile' } })
@@ -127,6 +129,15 @@ export function useHomePage() {
 
   const scheduleItems = ref<CalendarEvent[]>([])
   const selectedScheduleItems = computed(() => scheduleItems.value.filter((item) => (item.date || item.event_time?.slice(0, 10)) === localDateKey(selectedDate.value)))
+
+  const scheduleDates = computed(() => {
+    const map: Record<string, number> = {}
+    for (const item of scheduleItems.value) {
+      const d = item.date || item.event_time?.slice(0, 10)
+      if (d) map[d] = (map[d] || 0) + 1
+    }
+    return map
+  })
 
   async function fetchSchedule() {
     scheduleError.value = ''
@@ -223,7 +234,7 @@ export function useHomePage() {
     if (val.length > 0) startHotCarousel()
     else stopHotCarousel()
   })
-  watch([currentYear, currentMonth], fetchSchedule)
+  watch([currentYear, currentMonth], () => { fetchSchedule() })
   onMounted(() => {
     fetchData()
     fetchSchedule()
@@ -238,6 +249,6 @@ export function useHomePage() {
     currentYear, currentMonth, selectedDate, weekDays,
     calendarDays, prevMonth, nextMonth, selectDate, selectedScheduleItems,
     selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
-    fetchData, fetchSchedule, formatTime, formatDate, goActivityDetail, handleSearch, handleLogout, currentYearLabel,
+    fetchData, fetchSchedule, formatTime, formatDate, goActivityDetail, handleSearch, handleLogout, currentYearLabel, scheduleDates,
   }
 }

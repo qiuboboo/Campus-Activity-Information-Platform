@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { relationLabel } from '@/utils/knowledgeLabels'
 
 interface RelatedItem {
   id: number
@@ -49,13 +50,7 @@ const satellites = computed(() =>
 
 const overflow = computed(() => Math.max(0, props.related.length - MAX_SATELLITES))
 
-const RELATION_LABELS: Record<string, string> = {
-  same_day: '同日',
-  same_place: '同地点',
-  same_org: '同主办',
-  same_topic: '同主题',
-}
-const relationLabel = (value?: string) => RELATION_LABELS[value || ''] || value || '关联'
+const relationDisplay = (value?: string) => relationLabel(value || '') || value || '关联'
 </script>
 
 <template>
@@ -82,7 +77,7 @@ const relationLabel = (value?: string) => RELATION_LABELS[value || ''] || value 
       >
         <circle :cx="node.x" :cy="node.y" r="7" />
         <text :x="node.x" :y="node.y + (node.y >= CY ? 22 : -14)" text-anchor="middle">
-          <title>{{ node.title }}（{{ relationLabel(node.relation) }}）</title>
+          <title>{{ node.title }}（{{ relationDisplay(node.relation) }}）</title>
           {{ node.label }}
         </text>
       </g>

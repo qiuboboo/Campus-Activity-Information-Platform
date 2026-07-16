@@ -47,7 +47,6 @@ const formatTime = (value?: string | null) =>
 const tools = [
   { title: '审核队列', desc: '处理发布者提交和爬虫草稿', path: '/admin/review' },
   { title: '数据源', desc: '维护爬取来源、查看日志和任务状态', path: '/admin/data-sources' },
-  { title: 'AI 工具', desc: '抽取活动字段、AI 搜索和增强活动', path: '/admin/ai' },
   { title: '知识图谱', desc: '查看节点、关联活动并重建知识', path: '/admin/knowledge' },
   { title: '字典管理', desc: '维护地点、组织和主题标准词', path: '/admin/dicts' },
   { title: '审计日志', desc: '追踪关键后台操作并导出数据', path: '/admin/audit-logs' },

@@ -15,8 +15,11 @@ class TestGeneratePosterHtml:
             organizer="校团委",
             activity_type="讲座",
         )
-        assert "activity-poster" in html
+        assert "<!DOCTYPE html>" in html
         assert "测试活动" in html
+        assert "大礼堂" in html
+        assert "校团委" in html
+        assert "讲座" in html
         assert "大礼堂" in html
         assert "校团委" in html
         assert "讲座" in html

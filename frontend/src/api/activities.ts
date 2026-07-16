@@ -73,7 +73,11 @@ export function getActivityById(id: number) {
 }
 
 export function registerForActivity(id: number) {
-  return client.post<{ success: boolean; registrations: number; already_registered: boolean }>(`/activities/${id}/register`)
+  return client.post<{ success: boolean; registrations: number; already_registered: boolean; registered?: boolean }>(`/activities/${id}/register`)
+}
+
+export function cancelRegistration(id: number) {
+  return client.delete<{ success: boolean; registrations: number; registered: boolean }>(`/activities/${id}/register`)
 }
 
 export function setActivityFavorite(id: number, favorite: boolean) {

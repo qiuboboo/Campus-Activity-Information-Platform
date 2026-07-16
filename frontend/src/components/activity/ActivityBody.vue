@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Attachment } from '@/api/activities'
 import { safeAttachmentUrl } from '@/utils/attachments'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
 
 interface Props {
   rawText: string
@@ -10,21 +11,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-function sanitizeHtml(value?: string | null) {
-  if (!value || typeof window === 'undefined') return ''
-  const doc = new DOMParser().parseFromString(value, 'text/html')
-  doc.querySelectorAll('script, iframe, object, embed, link, style').forEach((node) => node.remove())
-  doc.body.querySelectorAll('*').forEach((node) => {
-    for (const attr of [...node.attributes]) {
-      const name = attr.name.toLowerCase()
-      const attrValue = attr.value.trim().toLowerCase()
-      if (name.startsWith('on') || attrValue.startsWith('javascript:')) node.removeAttribute(attr.name)
-    }
-  })
-  return doc.body.innerHTML
-}
-
 const safeContentHtml = computed(() => sanitizeHtml(props.contentHtml))
 </script>
 

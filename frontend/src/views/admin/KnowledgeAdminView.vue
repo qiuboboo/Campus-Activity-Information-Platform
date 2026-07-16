@@ -7,6 +7,7 @@ import PageState from '@/components/PageState.vue'
 import KnowledgeEgoGraph from '@/components/KnowledgeEgoGraph.vue'
 import { exportKnowledge } from '@/api/admin'
 import { getKnowledgeNode, listKnowledgeNodes, rebuildKnowledge, type KnowledgeNode, type RelatedActivity } from '@/api/knowledge'
+import { relationLabel, matchedByLabel } from '@/utils/knowledgeLabels'
 
 const router = useRouter()
 
@@ -131,11 +132,22 @@ onMounted(load)
         <strong>知识图谱</strong>
         <span>{{ nodes.length }} 个节点</span>
       </div>
-      <button v-for="group in graphGroups" :key="group.type" type="button" class="graph-group" @click="nodeType = group.type; load()">
+      <button
+        v-for="group in graphGroups"
+        :key="group.type"
+        type="button"
+        class="graph-group"
+        :class="{ active: nodeType === group.type }"
+        @click="nodeType = nodeType === group.type ? '' : group.type; load()"
+      >
         <strong>{{ group.type }}</strong>
         <span>{{ group.items.length }} 个节点</span>
         <small>{{ group.items.slice(0, 3).map(item => item.name).join(' / ') }}</small>
       </button>
+      <div v-if="nodeType" class="filter-tag">
+        已筛选：{{ nodeType }}
+        <el-button text size="small" type="primary" @click="nodeType = ''; load()">显示全部</el-button>
+      </div>
     </section>
 
     <PageState :loading="loading" :error="error" :empty="!loading && !error && !nodes.length" empty-text="暂无知识节点" @retry="load">
@@ -166,7 +178,7 @@ onMounted(load)
         <el-empty v-if="!activeNode.posters?.length" description="暂无关联活动" />
         <article v-for="item in activeNode.posters" v-else :key="`${item.poster.id}-${item.relation_type}`" class="poster-line">
           <strong>{{ item.poster.title }}</strong>
-          <span>{{ item.relation_type }} / {{ item.matched_by }}</span>
+          <span>{{ relationLabel(item.relation_type) }} · {{ matchedByLabel(item.matched_by) }}</span>
         </article>
       </template>
     </el-drawer>
@@ -181,8 +193,10 @@ onMounted(load)
 .graph-center { display: grid; place-content: center; text-align: center; color: #fff; background: var(--brand); }
 .graph-center strong { font-size: 18px; }
 .graph-center span { opacity: .9; margin-top: 4px; }
-.graph-group { border: 1px solid #dcebe1; background: #f8fbf9; text-align: left; cursor: pointer; color: var(--brand-dark); display: grid; gap: 6px; }
+.graph-group { border: 2px solid transparent; background: #f8fbf9; text-align: left; cursor: pointer; color: var(--brand-dark); display: grid; gap: 6px; }
 .graph-group:hover { border-color: var(--brand-accent); background: var(--brand-soft); }
+.graph-group.active { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 1px var(--brand); }
+.filter-tag { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 6px; background: #eef6f1; color: var(--brand-dark); font-size: 13px; }
 .graph-group span, .graph-group small { color: var(--text-muted); }
 .graph-group small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-wrap { overflow: auto; }

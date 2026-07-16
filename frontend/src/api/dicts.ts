@@ -24,4 +24,5 @@ export const listDictEntries = (category: DictCategory, params?: { q?: string; p
 export const createDictEntry = (category: DictCategory, data: Pick<DictEntry, 'standard_name' | 'aliases' | 'description'>) => client.post<{ item: DictEntry }>(`/dict/${category}`, data)
 export const updateDictEntry = (category: DictCategory, id: number, data: Partial<Pick<DictEntry, 'standard_name' | 'aliases' | 'description'>>) => client.put<{ item: DictEntry }>(`/dict/${category}/${id}`, data)
 export const deleteDictEntry = (category: DictCategory, id: number) => client.delete(`/dict/${category}/${id}`)
+export const getDictSuggestions = (category: string) => client.get<{ items: Array<{ value: string; count: number }> }>(`/dict/${category}/suggestions`)
 export const seedDictEntries = () => client.post<{ seeded: number }>('/dict/seed')

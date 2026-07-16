@@ -15,9 +15,19 @@ import {
   type DataSource,
   type TaskStatus,
 } from '@/api/admin'
+import client from '@/api/client'
+import { createActivity } from '@/api/activities'
 
 const loading = ref(false)
 const error = ref('')
+
+// 预览抓取
+const previewDrawer = ref(false)
+const previewSource = ref<DataSource | null>(null)
+const previewCandidates = ref<Array<{ title: string; raw_text: string; summary: string; event_time: string | null; location: string; organizer: string; source_url: string; is_duplicate: boolean }>>([])
+const previewLoading = ref(false)
+const importing = ref(false)
+const checkedCandidates = ref<typeof previewCandidates.value>([])
 const sources = ref<DataSource[]>([])
 const dialog = ref(false)
 const editingId = ref<number | null>(null)
@@ -76,6 +86,31 @@ async function run(source: DataSource) {
     }
     openLogs(source)
   } catch {}
+}
+
+async function previewCrawl(source: DataSource) {
+  previewSource.value = source
+  previewCandidates.value = []
+  previewDrawer.value = true
+  previewLoading.value = true
+  try {
+    const { data } = await client.get<any>(`/data-sources/${source.id}/preview-crawl?limit=10`)
+    previewCandidates.value = data.items || []
+  } catch { ElMessage.error('预览抓取失败') } finally { previewLoading.value = false }
+}
+
+async function importCandidates(candidates: typeof previewCandidates.value) {
+  importing.value = true
+  let created = 0
+  for (const c of candidates) {
+    try {
+      await createActivity({ title: c.title, raw_text: c.raw_text, summary: c.summary, event_time: c.event_time, location: c.location, organizer: c.organizer, activity_type: '', tags: [], attachments: [], cover_image_url: '' } as any)
+      created++
+    } catch {}
+  }
+  ElMessage.success(`已创建 ${created} 条草稿`)
+  previewDrawer.value = false
+  importing.value = false
 }
 
 function open(source?: DataSource) {
@@ -198,6 +233,7 @@ onUnmounted(stopTaskPolling)
           <el-table-column label="操作" width="250">
             <template #default="{ row }">
               <el-button text type="primary" @click="open(row)">编辑</el-button>
+              <el-button text type="primary" @click="previewCrawl(row)">预览</el-button>
               <el-button text type="primary" @click="run(row)">抓取</el-button>
               <el-button text type="primary" @click="openLogs(row)">日志</el-button>
             </template>
@@ -246,6 +282,27 @@ onUnmounted(stopTaskPolling)
           </article>
         </div>
       </PageState>
+    </el-drawer>
+
+    <el-drawer v-model="previewDrawer" size="min(92vw, 680px)" :title="previewSource ? `${previewSource.name} 预览抓取` : '预览抓取'">
+      <div v-if="previewLoading" style="padding:24px"><el-skeleton :rows="6" animated /></div>
+      <el-empty v-else-if="!previewCandidates.length" description="未提取到内容，请检查数据源配置或目标站点可访问性。" />
+      <template v-else>
+        <div style="margin-bottom:12px;color:var(--text-muted);font-size:13px">共 {{ previewCandidates.length }} 条候选，勾选后点"导入所选"创建草稿。</div>
+        <el-table :data="previewCandidates" @selection-change="checkedCandidates = $event" max-height="55vh">
+          <el-table-column type="selection" width="40" />
+          <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="location" label="地点" width="100" />
+          <el-table-column prop="organizer" label="主办方" width="100" />
+          <el-table-column label="重复" width="70">
+            <template #default="{ row }"><el-tag v-if="row.is_duplicate" size="small" type="warning" effect="plain">重复</el-tag></template>
+          </el-table-column>
+        </el-table>
+        <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+          <el-button @click="previewDrawer = false">关闭</el-button>
+          <el-button type="primary" :disabled="!checkedCandidates.length" :loading="importing" @click="importCandidates(checkedCandidates)">导入所选 ({{ checkedCandidates.length }})</el-button>
+        </div>
+      </template>
     </el-drawer>
   </AppShell>
 </template>

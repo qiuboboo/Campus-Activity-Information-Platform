@@ -128,6 +128,20 @@ def delete(source_id: int):
     return jsonify({"success": True, "message": "Data source deleted"}), 200
 
 
+@data_sources_bp.post("/data-sources/<int:source_id>/preview-crawl")
+@roles_required("admin")
+def preview_crawl(source_id: int):
+    """Crawl + extract fields without saving — returns candidate list for review."""
+    from ..services.crawler_service import collect_crawl_candidates
+
+    limit = min(int(request.args.get("limit", 10)), 50)
+    try:
+        candidates = collect_crawl_candidates(source_id, limit=limit)
+    except ValueError:
+        return jsonify({"message": "Data source not found"}), 404
+    return jsonify({"items": candidates, "total": len(candidates)})
+
+
 @data_sources_bp.route("/data-sources/<int:source_id>/crawl", methods=["POST"])
 @roles_required("admin")
 def crawl(source_id: int):

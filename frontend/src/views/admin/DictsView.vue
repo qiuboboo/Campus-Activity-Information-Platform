@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppShell from '@/components/AppShell.vue'
 import PageState from '@/components/PageState.vue'
-import { createDictEntry, deleteDictEntry, listDictEntries, seedDictEntries, updateDictEntry, type DictCategory, type DictEntry } from '@/api/dicts'
+import { createDictEntry, deleteDictEntry, getDictSuggestions, listDictEntries, seedDictEntries, updateDictEntry, type DictCategory, type DictEntry } from '@/api/dicts'
 
 const category = ref<DictCategory>('place')
 const q = ref('')
@@ -64,6 +64,22 @@ async function remove(entry: DictEntry) {
   } catch {}
 }
 
+const suggestDialog = ref(false)
+const suggestions = ref<Array<{ value: string; count: number }>>([])
+const suggestLoading = ref(false)
+const checked = ref<string[]>([])
+async function loadSuggestions() {
+  suggestLoading.value = true
+  try { const { data } = await getDictSuggestions(category.value); suggestions.value = data.items } catch { ElMessage.error('获取建议失败') } finally { suggestLoading.value = false }
+  suggestDialog.value = true
+}
+async function addSuggestions(selected: string[]) {
+  for (const value of selected) { try { await createDictEntry(category.value as DictCategory, { standard_name: value, aliases: '', description: '' }) } catch {} }
+  ElMessage.success(`已添加 ${selected.length} 个条目`)
+  suggestDialog.value = false
+  load()
+}
+
 async function seed() {
   const { data } = await seedDictEntries()
   ElMessage.success(data.seeded ? `已导入 ${data.seeded} 条内置别名` : '内置别名已存在')
@@ -77,6 +93,7 @@ onMounted(load)
   <AppShell title="字典管理">
     <template #heading>
       <el-button @click="seed">导入内置别名</el-button>
+      <el-button @click="loadSuggestions">从活动提取</el-button>
       <el-button type="primary" @click="open()">新增字典项</el-button>
     </template>
 
@@ -112,6 +129,19 @@ onMounted(load)
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>
         <el-button type="primary" @click="save">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="suggestDialog" title="从活动提取词条" width="min(92vw, 560px)">
+      <p v-if="!suggestions.length && !suggestLoading" style="color:var(--text-muted)">没有可提取的值，所有出现的词条已收录。</p>
+      <el-table :data="suggestions" v-loading="suggestLoading" @selection-change="checked = ($event as Array<{value:string}>).map(r => r.value)">
+        <el-table-column type="selection" width="48" />
+        <el-table-column prop="value" label="值" min-width="160" />
+        <el-table-column prop="count" label="出现次数" width="100" />
+      </el-table>
+      <template #footer>
+        <el-button @click="suggestDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="!checked.length" @click="addSuggestions(checked); checked = []">添加所选 ({{ checked.length }})</el-button>
       </template>
     </el-dialog>
   </AppShell>

@@ -18,7 +18,7 @@
     <div class="side-section-title">分类入口</div>
     <div class="side-categories">
       <button
-        v-for="cat in activityTypeList.slice(0, 6)"
+        v-for="cat in activityTypeList"
         :key="cat"
         type="button"
         class="side-cat-item"

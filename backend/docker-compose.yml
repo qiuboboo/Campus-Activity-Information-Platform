@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      CAPTCHA_E2E_BYPASS: "1"
     ports:
       - "127.0.0.1:5000:5000"
     depends_on:

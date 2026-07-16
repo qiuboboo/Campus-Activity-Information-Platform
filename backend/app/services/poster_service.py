@@ -10,30 +10,64 @@ def generate_poster_html(
     organizer: str | None = None,
     activity_type: str | None = None,
 ) -> str:
-    """Generate a clean HTML poster card for an activity.
+    """Generate a self-contained HTML poster card with inline CSS.
 
-    Returns a self-contained HTML fragment suitable for embedding in
-    a page or returning via the API.
+    Returns a complete HTML document suitable for viewing standalone
+    (e.g. opened in a new browser tab or embedded in an iframe).
     """
     time_str = event_time.strftime("%Y-%m-%d %H:%M") if event_time else ""
 
-    lines = [f'<div class="activity-poster">']
-    lines.append(f'  <h2 class="poster-title">{escape(title)}</h2>')
+    css = """
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#f0f5f3;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:24px}
+    .poster{max-width:520px;width:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(13,94,60,0.12)}
+    .poster-header{background:linear-gradient(135deg,#0d5e3c,#27a66b);padding:32px 28px 24px;color:#fff}
+    .poster-header .type-badge{display:inline-block;padding:4px 14px;border-radius:999px;background:rgba(255,255,255,0.2);font-size:13px;margin-bottom:14px}
+    .poster-header h1{font-size:26px;font-weight:800;line-height:1.35}
+    .poster-body{padding:24px 28px}
+    .poster-meta{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:22px}
+    .poster-meta .field{display:grid;gap:4px}
+    .poster-meta .field-label{font-size:12px;color:#889e93;text-transform:uppercase;letter-spacing:0.05em}
+    .poster-meta .field-value{font-size:15px;color:#1a2e25;font-weight:600}
+    .poster-summary{border-top:1px solid #e8f2ea;padding-top:18px;font-size:15px;color:#37423e;line-height:1.8}
+    .poster-footer{padding:16px 28px;background:#f7fbf8;text-align:center;font-size:12px;color:#889e93}
+    """.strip()
 
+    meta_rows = ""
     if time_str:
-        lines.append(f'  <p class="poster-time"><strong>时间：</strong>{escape(time_str)}</p>')
+        meta_rows += f'<div class="field"><span class="field-label">时间</span><span class="field-value">{escape(time_str)}</span></div>'
     if location:
-        lines.append(f'  <p class="poster-location"><strong>地点：</strong>{escape(location)}</p>')
+        meta_rows += f'<div class="field"><span class="field-label">地点</span><span class="field-value">{escape(location)}</span></div>'
     if organizer:
-        lines.append(f'  <p class="poster-organizer"><strong>主办方：</strong>{escape(organizer)}</p>')
+        meta_rows += f'<div class="field"><span class="field-label">主办方</span><span class="field-value">{escape(organizer)}</span></div>'
     if activity_type:
-        lines.append(f'  <p class="poster-type"><strong>类型：</strong>{escape(activity_type)}</p>')
+        meta_rows += f'<div class="field"><span class="field-label">类型</span><span class="field-value">{escape(activity_type)}</span></div>'
 
-    if summary:
-        lines.append(f'  <p class="poster-summary">{escape(summary)}</p>')
+    type_badge = f'<div class="type-badge">{escape(activity_type)}</div>' if activity_type else ""
+    summary_html = f'<div class="poster-summary">{escape(summary)}</div>' if summary else ""
 
-    lines.append("</div>")
-    return "\n".join(lines)
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(title)}</title>
+<style>{css}</style>
+</head>
+<body>
+<div class="poster">
+  <header class="poster-header">
+    {type_badge}
+    <h1>{escape(title)}</h1>
+  </header>
+  <section class="poster-body">
+    <div class="poster-meta">{meta_rows}</div>
+    {summary_html}
+  </section>
+  <footer class="poster-footer">逸仙活动云 · Campus Activity Hub</footer>
+</div>
+</body>
+</html>"""
 
 
 def auto_extract_fields(title: str, content: str) -> dict:

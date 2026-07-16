@@ -201,6 +201,57 @@ def _create_draft_poster(
     return poster, is_duplicate
 
 
+def collect_crawl_candidates(data_source_id: int, limit: int = 10) -> list[dict]:
+    """Execute crawl + extraction without creating Poster records.
+
+    Returns a list of candidate dicts for frontend preview.
+    """
+    source = DataSource.query.get(data_source_id)
+    if source is None:
+        raise ValueError(f"DataSource {data_source_id} not found")
+
+    now_iso = datetime.utcnow().isoformat()
+
+    # 1) Fetch list page
+    list_html = _fetch(source.base_url)
+    page_urls = _parse_list_links(list_html, source.base_url, source.list_selector)
+
+    candidates: list[dict] = []
+    for url in page_urls[:limit]:
+        try:
+            html = _fetch(url)
+            raw_text = _parse_content(html, source.content_selector)
+            raw_text = _clean_text(raw_text)
+            raw_text = sanitise_crawled_text(raw_text)
+            raw_text = mask_sensitive(raw_text)
+
+            fields = _extract_structured_fields(raw_text, url)
+
+            # Check duplicates without creating poster
+            dup = check_duplicates(
+                fields.get("title", ""), url,
+                fields.get("event_time"), fields.get("location"),
+                exclude_id=None,
+            )
+
+            candidates.append({
+                "title": fields.get("title", ""),
+                "raw_text": raw_text,
+                "summary": raw_text[:_MAX_SUMMARY_LENGTH].replace("\n", " ").strip(),
+                "event_time": fields.get("event_time"),
+                "location": fields.get("location") or "",
+                "organizer": fields.get("organizer") or "",
+                "source_url": url,
+                "is_duplicate": dup["is_duplicate"],
+                "duplicate_group_key": dup.get("duplicate_group_key", ""),
+            })
+        except Exception:
+            continue
+
+    candidates.sort(key=lambda c: c["is_duplicate"])  # non-duplicates first
+    return candidates
+
+
 def crawl_data_source(data_source_id: int, user_id: int) -> dict:
     ds = get_data_source(data_source_id)
     if ds is None:

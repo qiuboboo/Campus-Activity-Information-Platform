@@ -6,6 +6,7 @@ import AppShell from '@/components/AppShell.vue'
 import PageState from '@/components/PageState.vue'
 import ActivityCover from '@/components/ActivityCover.vue'
 import { createActivity, getActivityById, submitActivityForReview, updateActivity, type ActivityForm, type Attachment } from '@/api/activities'
+import { extractActivityFields } from '@/api/ai'
 import { deleteUpload, uploadAttachment } from '@/api/uploads'
 import { ACCEPTED_ATTACHMENT_EXTENSIONS, MAX_ATTACHMENT_SIZE, validateAttachmentFile } from '@/utils/attachments'
 
@@ -119,6 +120,27 @@ function selectCover(uploadFile: { raw?: File }) {
   if (uploadFile.raw) void uploadCover(uploadFile.raw)
 }
 
+const aiFilling = ref(false)
+async function aiFillForm() {
+  const text = (form.raw_text || '').trim()
+  if (!text) { ElMessage.warning('请先输入活动正文'); return }
+  aiFilling.value = true
+  try {
+    const { data } = await extractActivityFields(text)
+    const fields: Record<string, any> = data.fields || data
+    // 仅填空不覆盖已填内容
+    if (!form.title) form.title = fields.title || ''
+    if (!form.summary) form.summary = fields.summary || ''
+    if (!form.event_time && fields.event_time) form.event_time = fields.event_time
+    if (!form.location) form.location = fields.location || ''
+    if (!form.organizer) form.organizer = fields.organizer || ''
+    if (!form.activity_type) form.activity_type = fields.activity_type || ''
+    if (!tagsText.value && fields.tags) tagsText.value = Array.isArray(fields.tags) ? fields.tags.join('、') : fields.tags
+    dirty.value = true
+    ElMessage.success('AI 字段提取完成，已填充空位')
+  } catch { ElMessage.error('AI 提取失败，请检查 LLM 配置或手动填写') } finally { aiFilling.value = false }
+}
+
 async function retryUpload(file: File) {
   failedUploads.value = failedUploads.value.filter((item) => item.file !== file)
   await addAttachment(file)
@@ -216,7 +238,10 @@ onBeforeRouteLeave(async () => {
           </el-form-item>
 
           <el-form-item label="活动摘要"><el-input v-model="form.summary" type="textarea" :rows="2" maxlength="300" show-word-limit /></el-form-item>
-          <el-form-item label="活动正文" prop="raw_text"><el-input v-model="form.raw_text" type="textarea" :rows="8" /></el-form-item>
+          <el-form-item label="活动正文" prop="raw_text">
+            <template #label><span>活动正文</span><el-button size="small" text type="primary" :loading="aiFilling" @click="aiFillForm" style="margin-left:12px">AI 智能填充</el-button></template>
+            <el-input v-model="form.raw_text" type="textarea" :rows="8" />
+          </el-form-item>
 
           <el-row :gutter="16">
             <el-col :md="12"><el-form-item label="活动时间"><el-date-picker v-model="form.event_time" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%" /></el-form-item></el-col>

@@ -6,7 +6,8 @@ import AppShell from '@/components/AppShell.vue'
 import ActivityHeader from '@/components/activity/ActivityHeader.vue'
 import ActivityMeta from '@/components/activity/ActivityMeta.vue'
 import ActivityBody from '@/components/activity/ActivityBody.vue'
-import { getActivityById, registerForActivity, setActivityFavorite, type ActivityDetail as ActivityDetailType } from '@/api/activities'
+import PosterPreview from '@/components/PosterPreview.vue'
+import { cancelRegistration, getActivityById, registerForActivity, setActivityFavorite, type ActivityDetail as ActivityDetailType } from '@/api/activities'
 import { getActivityKnowledgeContext, subscribeToKnowledgeNode, type ActivityKnowledgeContext } from '@/api/knowledge'
 import { addActivityToCalendar, downloadActivityIcs, removeActivityFromCalendar } from '@/api/calendar'
 import { useAuthStore } from '@/stores/auth'
@@ -72,11 +73,23 @@ async function fetchDetail() {
   }
 }
 
-async function register() {
+async function toggleRegister() {
   if (!detail.value) return
   if (!auth.isLoggedIn) { router.push({ path: '/auth/login', query: { redirect: route.fullPath } }); return }
   registering.value = true
-  try { const { data } = await registerForActivity(detail.value.id); detail.value.meta = { ...(detail.value.meta || { views: 0, registrations: 0 }), registrations: data.registrations }; registered.value = true; ElMessage.success(data.already_registered ? '你已报名该活动' : '报名成功') } catch { /* interceptor handles request errors */ } finally { registering.value = false }
+  try {
+    if (registered.value) {
+      const { data } = await cancelRegistration(detail.value.id)
+      detail.value.meta = { ...(detail.value.meta || { views: 0, registrations: 0 }), registrations: data.registrations }
+      registered.value = false
+      ElMessage.success('已取消报名')
+    } else {
+      const { data } = await registerForActivity(detail.value.id)
+      detail.value.meta = { ...(detail.value.meta || { views: 0, registrations: 0 }), registrations: data.registrations }
+      registered.value = true
+      ElMessage.success(data.already_registered ? '你已报名该活动' : '报名成功')
+    }
+  } catch { /* interceptor handles request errors */ } finally { registering.value = false }
 }
 async function toggleFavorite() {
   if (!detail.value) return
@@ -203,11 +216,12 @@ watch(activityId, fetchDetail, { immediate: true })
             <p>报名、分享和收藏都将保留清晰反馈；报名需要登录。</p>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" :loading="registering" :disabled="registered" @click="register">{{ registered ? '已报名' : '立即报名' }}</el-button>
+            <el-button :type="registered ? 'plain' : 'primary'" :loading="registering" @click="toggleRegister">{{ registered ? '取消报名' : '立即报名' }}</el-button>
             <el-button @click="share">分享</el-button>
             <el-button @click="toggleFavorite">{{ favorite ? '取消收藏' : '收藏' }}</el-button>
             <el-button :loading="calendarBusy" @click="toggleCalendar">{{ inCalendar ? '移出日历' : '加入日历' }}</el-button>
             <el-button @click="exportIcs">导出 ICS</el-button>
+            <PosterPreview :activity-id="detail.id" :title="detail.title" />
           </div>
         </section>
       </template>

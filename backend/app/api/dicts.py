@@ -85,3 +85,13 @@ def seed_entries():
     count = seed_builtin_aliases()
     db.session.commit()
     return jsonify({"seeded": count}), 201 if count else 200
+
+
+@dicts_bp.get("/dict/<category>/suggestions")
+@roles_required("admin")
+def get_suggestions(category: str):
+    """Return values from published posters that are not yet in the dictionary."""
+    if category not in ("place", "org", "topic"):
+        return jsonify({"message": "invalid category"}), 400
+    suggestions = suggest_from_posters(category)
+    return jsonify({"items": suggestions, "total": len(suggestions)})

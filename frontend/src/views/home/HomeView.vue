@@ -16,7 +16,7 @@ const {
   currentYear, currentMonth, selectedDate, weekDays,
   calendarDays, prevMonth, nextMonth, selectDate, selectedScheduleItems,
   selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
-  fetchData, fetchSchedule, formatTime, goActivityDetail, handleSearch, handleLogout, currentYearLabel
+  fetchData, fetchSchedule, formatTime, goActivityDetail, handleSearch, handleLogout, currentYearLabel, scheduleDates
 } = useHomePage()
 </script>
 
@@ -174,6 +174,7 @@ const {
           :selected-date="selectedDate"
           :schedule-items="selectedScheduleItems"
           :schedule-error="scheduleError"
+          :activity-dates="scheduleDates"
           @prev-month="prevMonth"
           @next-month="nextMonth"
           @select-date="selectDate"

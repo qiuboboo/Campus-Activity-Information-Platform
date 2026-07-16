@@ -116,3 +116,7 @@ def remove_calendar_event(poster_id: int):
     db.session.delete(event)
     db.session.commit()
     return jsonify({"message": "event removed from calendar"}), 200
+
+
+# ---------------------------------------------------------------------------
+# (activity-counts endpoint removed — heatmap now uses personal calendar events)

@@ -9,6 +9,7 @@ from ..services.audit_service import create_audit_log
 from ..services.knowledge_service import rebuild_poster_knowledge
 from ..services.notification_service import dispatch_notifications
 from ..services.poster_service import build_poster_fields, generate_poster_html
+from flask import Response as FlaskResponse
 from ..utils.auth import roles_required
 
 
@@ -242,7 +243,7 @@ def submit_activity(activity_id: int):
     return jsonify(_activity_payload(poster, detail=True))
 
 
-@activities_bp.post("/<int:activity_id>/register")
+@activities_bp.route("/<int:activity_id>/register", methods=["POST", "DELETE"])
 @jwt_required()
 def register_activity(activity_id: int):
     poster = Poster.query.get_or_404(activity_id)
@@ -254,6 +255,15 @@ def register_activity(activity_id: int):
 
     user_id = int(get_jwt_identity())
     key = _redis_set_key("registrations", activity_id)
+
+    if request.method == "DELETE":
+        redis.srem(key, user_id)
+        return jsonify({
+            "success": True,
+            "registrations": int(redis.scard(key)),
+            "registered": False,
+        })
+
     already_registered = bool(redis.sismember(key, user_id))
     if not already_registered:
         redis.sadd(key, user_id)
@@ -283,3 +293,18 @@ def favorite_activity(activity_id: int):
         redis.srem(key, activity_id)
         favorite = False
     return jsonify({"favorite": favorite})
+
+
+@activities_bp.get("/<int:activity_id>/poster-html")
+def poster_html(activity_id: int):
+    """Return a standalone HTML poster page for this activity (public)."""
+    poster = Poster.query.get_or_404(activity_id)
+    html = generate_poster_html(
+        title=poster.title,
+        summary=poster.summary,
+        event_time=poster.event_time,
+        location=poster.location,
+        organizer=poster.organizer,
+        activity_type=poster.activity_type,
+    )
+    return FlaskResponse(html, mimetype="text/html")

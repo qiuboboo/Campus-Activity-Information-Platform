@@ -161,6 +161,44 @@ _KNOWN_ALIASES: dict[str, dict[str, str]] = {
 }
 
 
+def suggest_from_posters(category: str) -> list[dict]:
+    """Scan published posters for values not yet in the dictionary.
+
+    Returns a list of ``{value, count}`` sorted by count descending.
+    Only includes values that do NOT already normalize to an existing entry.
+    """
+    from ..models import DictEntry, Poster
+
+    column = {"place": "location", "org": "organizer", "topic": "activity_type"}.get(category)
+    if column is None:
+        return []
+
+    existing_standards = {
+        e.standard_name for e in DictEntry.query.filter_by(category=category).all()
+    }
+    # Gather values and normalize them
+    raw_values = (
+        Poster.query
+        .filter(Poster.status == "published")
+        .with_entities(getattr(Poster, column))
+        .all()
+    )
+    counts: dict[str, int] = {}
+    for (val,) in raw_values:
+        val = (val or "").strip()
+        if not val:
+            continue
+        normalized = normalize(val, category)
+        if normalized not in existing_standards:
+            counts[val] = counts.get(val, 0) + 1
+
+    return sorted(
+        [{"value": v, "count": c} for v, c in counts.items()],
+        key=lambda x: x["count"],
+        reverse=True,
+    )
+
+
 def seed_builtin_aliases() -> int:
     """Insert hard-coded alias mappings into the database.
 
