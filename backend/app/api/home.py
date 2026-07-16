@@ -1,5 +1,4 @@
-from flask import Blueprint, jsonify
-from sqlalchemy import desc
+from flask import Blueprint, current_app, jsonify
 
 from ..models import Poster
 
@@ -8,12 +7,25 @@ home_bp = Blueprint("home", __name__)
 
 @home_bp.get("/home/featured")
 def featured():
-    posters = (
-        Poster.query.filter_by(status="published")
-        .order_by(desc(Poster.created_at))
-        .limit(3)
-        .all()
-    )
+    count = 5
+    posters = Poster.query.filter_by(status="published").all()
+
+    # Sort by registration count from Redis (if available); fallback to created_at
+    redis = getattr(current_app, "redis", None)
+    if redis and posters:
+        try:
+            pipe = redis.pipeline()
+            for p in posters:
+                pipe.scard(f"activity:{p.id}:registrations")
+            reg_counts = dict(zip([p.id for p in posters], pipe.execute()))
+            posters.sort(key=lambda p: reg_counts.get(p.id, 0), reverse=True)
+        except Exception:
+            posters.sort(key=lambda p: p.created_at, reverse=True)
+    else:
+        posters.sort(key=lambda p: p.created_at, reverse=True)
+
+    posters = posters[:count]
+
     return jsonify({
         "items": [
             {

@@ -227,3 +227,28 @@ def external_search():
         "source": "multi",
         "error": result.get("error"),
     })
+
+
+@search_bp.post("/search/poster-preview")
+@jwt_required()
+def poster_preview():
+    """Generate a poster HTML from external search result title+summary."""
+    from flask import Response
+
+    from ..services.poster_service import generate_poster_html
+
+    payload = request.get_json(silent=True) or {}
+    title = (payload.get("title") or "").strip()
+    summary = (payload.get("summary") or "").strip()
+    source = (payload.get("source") or "").strip()
+
+    if not title:
+        return jsonify({"message": "title is required"}), 400
+
+    html = generate_poster_html(
+        title=title,
+        summary=summary,
+        organizer=source or None,
+        activity_type="外部",
+    )
+    return Response(html, mimetype="text/html")

@@ -30,6 +30,7 @@ const router = createRouter({
     { path: '/admin/review', name: 'AdminReview', component: () => import('@/views/admin/ReviewView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
     { path: '/admin/data-sources', name: 'DataSources', component: () => import('@/views/admin/DataSourcesView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
     { path: '/admin/knowledge', name: 'AdminKnowledge', component: () => import('@/views/admin/KnowledgeAdminView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
+    { path: '/admin/ai-config', name: 'AdminAiConfig', component: () => import('@/views/admin/AiConfigView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
     { path: '/admin/dicts', name: 'AdminDicts', component: () => import('@/views/admin/DictsView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
     { path: '/admin/audit-logs', name: 'AuditLogs', component: () => import('@/views/admin/AuditLogsView.vue'), meta: { requiresAuth: true, roles: ['admin'] } },
     { path: '/forbidden', name: 'Forbidden', component: () => import('@/views/error/ForbiddenView.vue') },

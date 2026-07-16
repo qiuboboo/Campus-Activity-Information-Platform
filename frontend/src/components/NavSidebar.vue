@@ -14,44 +14,26 @@
       </button>
     </nav>
 
-    <div class="side-divider"></div>
-    <div class="side-section-title">分类入口</div>
-    <div class="side-categories">
-      <button
-        v-for="cat in activityTypeList"
-        :key="cat"
-        type="button"
-        class="side-cat-item"
-        :class="{ active: selectedCategoryId === cat }"
-        @click="$emit('selectCategory', cat)"
-      >
-        <span class="side-cat-dot"></span>
-        <span>{{ cat }}</span>
-      </button>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { Grid, TrendCharts, Collection, Star, Plus } from '@element-plus/icons-vue'
+import { Grid, TrendCharts, Bell, Star, Plus } from '@element-plus/icons-vue'
 
 const navItems = [
   { key: 'all', label: '全部活动', icon: Grid },
   { key: 'hot', label: '热门推荐', icon: TrendCharts },
-  { key: 'categories', label: '按类别', icon: Collection },
+  { key: 'subscriptions', label: '我的订阅', icon: Bell },
   { key: 'my', label: '我的活动', icon: Star },
   { key: 'create', label: '创建活动', icon: Plus },
 ]
 
 defineProps<{
   activeNav: string
-  activityTypeList: string[]
-  selectedCategoryId: string | null
 }>()
 
 defineEmits<{
   (e: 'selectNav', key: string): void
-  (e: 'selectCategory', cat: string): void
 }>()
 </script>
 

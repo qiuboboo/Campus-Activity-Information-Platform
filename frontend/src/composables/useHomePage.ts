@@ -56,7 +56,11 @@ export function useHomePage() {
     activeNav.value = key
     if (key === 'all') { router.push('/activities'); return }
     if (key === 'hot') { router.push('/activities?sort=event_time'); return }
-    if (key === 'categories') { router.push('/search'); return }
+    if (key === 'subscriptions') {
+      if (!auth.isLoggedIn) { router.push({ path: '/auth/login', query: { redirect: '/profile?tab=subscriptions' } }); return }
+      router.push('/profile?tab=subscriptions')
+      return
+    }
     if (key === 'my') {
       if (!auth.isLoggedIn) {
         router.push({ path: '/auth/login', query: { redirect: '/profile' } })
@@ -155,11 +159,13 @@ export function useHomePage() {
   }
 
   // ---- 分类筛选 ----
+  const categoryFilter = ref<string>('recent')
   const selectedCategoryId = ref<string | null>('recent')
   const categoryActivities = ref<Activity[]>([])
 
   async function fetchCategoryActivities() {
-    if (!selectedCategoryId.value || selectedCategoryId.value === 'recent') {
+    const catId = categoryFilter.value || 'recent'
+    if (catId === 'recent') {
       categoryActivities.value = [...recentActivities.value].sort(
         (a: Activity, b: Activity) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       )
@@ -168,7 +174,7 @@ export function useHomePage() {
     try {
       const res = await listActivities({
         status: 'published',
-        activity_type: selectedCategoryId.value,
+        activity_type: categoryFilter.value,
         per_page: 20,
       })
       categoryActivities.value = (res.data?.items || []).sort(
@@ -248,7 +254,7 @@ export function useHomePage() {
     activeNav, selectNav,
     currentYear, currentMonth, selectedDate, weekDays,
     calendarDays, prevMonth, nextMonth, selectDate, selectedScheduleItems,
-    selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
-    fetchData, fetchSchedule, formatTime, formatDate, goActivityDetail, handleSearch, handleLogout, currentYearLabel, scheduleDates,
+    selectedCategoryId, categoryActivities, selectCategory,
+    fetchData, fetchSchedule, formatTime, formatDate, goActivityDetail, handleSearch, handleLogout, currentYearLabel, scheduleDates, categoryFilter, fetchCategoryActivities,
   }
 }

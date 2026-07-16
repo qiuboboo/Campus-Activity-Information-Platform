@@ -17,6 +17,21 @@ const title = computed(() => q.value ? `"${q.value}"的搜索结果` : '活动�
 
 function safeUrl(url?: string) { return url ? safeAttachmentUrl(url) : null }
 function openExternal(url?: string) { const href = safeUrl(url); if (href) window.open(href, '_blank', 'noopener') }
+async function generatePoster(title: string, summary: string, source: string, event: Event) {
+  event.stopPropagation()
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) { window.open('/auth/login', '_blank'); return }
+    const resp = await fetch('/api/search/poster-preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title, summary, source }),
+    })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const html = await resp.text()
+    const w = window.open('', '_blank', 'width=600,height=700')
+    if (w) { w.document.write(html); w.document.close() }
+  } catch { /* silently fail */ }
+}
 
 async function load() {
   if (!q.value.trim()) { items.value = []; total.value = 0; return }
@@ -65,6 +80,7 @@ onMounted(load)
           </div>
           <p>{{ result.item.summary || result.item.raw_text?.substring(0, 120) || '暂无简介' }}</p>
           <span class="ext-url">{{ safeUrl(result.url || (result.item as any).source_url) || '链接不可用' }}</span>
+          <el-button text size="small" type="primary" @click="generatePoster(result.item.title, result.item.summary || '', result.source || '', $event)">生成海报</el-button>
         </article>
       </div>
       <p v-if="scope === 'external' && items.length" class="external-note">外部搜索结果仅供参考，请以来源页面为准。</p>

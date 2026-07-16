@@ -12,6 +12,7 @@ from ..models import Poster
 from ..schemas import data
 from ..services.ai_service import enrich_poster, extract_from_text, search_external
 from ..services.mcp_service import call_tool, list_servers
+from ..services.model_manager import list_profiles
 from ..utils.auth import roles_required
 
 ai_bp = Blueprint("ai", __name__)
@@ -22,18 +23,34 @@ ai_bp = Blueprint("ai", __name__)
 # ---------------------------------------------------------------------------
 
 
+def _mask_key(key: str) -> str:
+    if not key or len(key) <= 8:
+        return "***"
+    return key[:4] + "..." + key[-4:]
+
+
 @ai_bp.get("/ai/status")
 @jwt_required()
 def status():
-    """Check whether AI services are configured and reachable."""
-    llm_key = bool(current_app.config.get("LLM_API_KEY", ""))
-    mcp_servers = current_app.config.get("MCP_SERVERS", "")
-
-    server_status = list_servers()
+    """Return detailed AI/search configuration (keys masked)."""
+    profiles = list_profiles()
+    llm_profiles = [
+        {
+            "name": name,
+            "model": p["model"],
+            "base_url": p["base_url"],
+            "key_masked": _mask_key(p["key"]),
+        }
+        for name, p in profiles.items()
+    ]
 
     return jsonify({
-        "llm_configured": llm_key,
-        "mcp_servers": server_status,
+        "llm_configured": bool(profiles),
+        "llm_profiles": llm_profiles,
+        "searxng_base_url": current_app.config.get("SEARXNG_BASE_URL", ""),
+        "searxng_engines": ["google", "bing", "duckduckgo", "baidu"],
+        "embedding_enabled": current_app.config.get("EMBEDDING_ENABLED", False),
+        "mcp_servers": list_servers(),
     })
 
 

@@ -15,7 +15,7 @@ const {
   activeNav, selectNav,
   currentYear, currentMonth, selectedDate, weekDays,
   calendarDays, prevMonth, nextMonth, selectDate, selectedScheduleItems,
-  selectedCategoryId, categoryActivities, fetchCategoryActivities, selectCategory,
+  categoryActivities, fetchCategoryActivities, categoryFilter,
   fetchData, fetchSchedule, formatTime, goActivityDetail, handleSearch, handleLogout, currentYearLabel, scheduleDates
 } = useHomePage()
 </script>
@@ -35,6 +35,8 @@ const {
       @profile="router.push('/profile')"
       @my-activities="router.push('/my/activities')"
       @admin="router.push('/admin')"
+      @favorites="router.push('/profile?tab=favorites')"
+      @calendar="router.push('/calendar')"
       @logout="handleLogout"
       @go-home="router.push('/')"
     />
@@ -42,10 +44,7 @@ const {
     <div class="home-body">
       <NavSidebar
         :active-nav="activeNav"
-        :activity-type-list="activityTypeList"
-        :selected-category-id="selectedCategoryId"
         @select-nav="selectNav"
-        @select-category="selectCategory"
       />
 
       <main class="home-main">
@@ -125,11 +124,8 @@ const {
                 </h2>
               </div>
               <div class="category-tabs">
-                <el-radio-group v-model="selectedCategoryId" @change="fetchCategoryActivities">
+                <el-radio-group v-model="categoryFilter" @change="fetchCategoryActivities">
                   <el-radio-button value="recent">最近</el-radio-button>
-                  <el-radio-button v-for="cat in activityTypeList" :key="cat" :value="cat">
-                    {{ cat }}
-                  </el-radio-button>
                 </el-radio-group>
               </div>
             </section>

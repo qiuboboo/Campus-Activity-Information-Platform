@@ -13,6 +13,8 @@
 
       <div class="nav-actions">
         <template v-if="isLoggedIn">
+          <el-button text class="nav-icon-btn" @click="$emit('favorites')" aria-label="我的收藏"><el-icon><Star /></el-icon></el-button>
+          <el-button text class="nav-icon-btn" @click="$emit('calendar')" aria-label="我的日历"><el-icon><Calendar /></el-icon></el-button>
           <el-button text class="nav-profile" @click="$emit('profile')">{{ username }}</el-button>
           <el-button v-if="isPublisher" text class="nav-profile" @click="$emit('myActivities')">我的发布</el-button>
           <el-button v-if="isAdmin" text class="nav-profile" @click="$emit('admin')">管理</el-button>
@@ -28,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { Calendar, Star } from '@element-plus/icons-vue'
 import SearchBar from './SearchBar.vue'
 
 defineProps<{
@@ -48,6 +51,8 @@ defineEmits<{
   (e: 'myActivities'): void
   (e: 'admin'): void
   (e: 'logout'): void
+  (e: 'favorites'): void
+  (e: 'calendar'): void
 }>()
 </script>
 
@@ -121,7 +126,9 @@ defineEmits<{
   font-size: 18px;
   font-weight: 600;
 }
-.nav-profile,.nav-register { color: rgb(255 255 255 / 90%) !important; }
+.nav-profile,.nav-register,.nav-icon-btn { color: rgb(255 255 255 / 90%) !important; }
+.nav-icon-btn { font-size: 20px; }
+.nav-icon-btn:hover { color: #27a66b !important; }
 
 @media (max-width: 768px) {
   .nav-brand-title { font-size: 22px; }
