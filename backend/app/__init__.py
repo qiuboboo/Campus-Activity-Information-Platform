@@ -6,8 +6,28 @@ from flask import Flask, jsonify, request
 from sqlalchemy import inspect, text
 from werkzeug.exceptions import HTTPException
 
+<<<<<<< Updated upstream
+=======
+from .api.ai import ai_bp
+from .api.activities import activities_bp
+from .api.audit_logs import audit_logs_bp
+from .api.auth import auth_bp
+from .api.calendar import calendar_bp
+from .api.data_sources import data_sources_bp
+from .api.dicts import dicts_bp
+from .api.export import export_bp
+from .api.health import health_bp
+from .api.home import home_bp
+from .api.knowledge import knowledge_bp
+from .api.posters import posters_bp
+from .api.search import search_bp
+from .api.subscriptions import subscriptions_bp
+from .api.tasks import tasks_bp
+from .api.uploads import uploads_bp
+from .commands import register_commands
+>>>>>>> Stashed changes
 from .config import Config
-from .extensions import cors, create_redis_client, db, jwt
+from .extensions import cors, create_redis_client, db, jwt, migrate
 from .services.bootstrap import ensure_default_admin
 from .utils.ratelimit import limiter
 
@@ -30,7 +50,19 @@ def init_database(app: Flask) -> None:
     with app.app_context():
         if app.config["AUTO_CREATE_TABLES"]:
             db.create_all()
+<<<<<<< Updated upstream
             _ensure_schema_compatibility()
+=======
+            # create_all does not alter existing tables.  This idempotent
+            # compatibility migration works for both local SQLite and Docker
+            # PostgreSQL without deleting existing registration data.
+            inspector = inspect(db.engine)
+            if "activity_registrations" in inspector.get_table_names():
+                columns = {column["name"] for column in inspector.get_columns("activity_registrations")}
+                if "contact_email" not in columns:
+                    db.session.execute(text("ALTER TABLE activity_registrations ADD COLUMN contact_email VARCHAR(120)"))
+                    db.session.commit()
+>>>>>>> Stashed changes
             ensure_default_admin()
 
 
@@ -125,6 +157,7 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     app.config.from_object(config_object)
 
     db.init_app(app)
+    migrate.init_app(app, db)
     jwt.init_app(app)
     cors.init_app(app, origins=app.config.get("CORS_ORIGINS", "*"))
 
@@ -137,7 +170,27 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     _register_request_logging(app)
     _register_blueprints(app)
 
+<<<<<<< Updated upstream
     from .commands import register_commands
+=======
+    app.register_blueprint(ai_bp, url_prefix="/api")
+    app.register_blueprint(health_bp, url_prefix="/api")
+    app.register_blueprint(home_bp, url_prefix="/api")
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(activities_bp, url_prefix="/api/activities")
+    app.register_blueprint(posters_bp, url_prefix="/api/posters")
+    app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
+    app.register_blueprint(search_bp, url_prefix="/api/search")
+    app.register_blueprint(data_sources_bp, url_prefix="/api")
+    app.register_blueprint(dicts_bp, url_prefix="/api")
+    app.register_blueprint(tasks_bp, url_prefix="/api")
+    app.register_blueprint(audit_logs_bp, url_prefix="/api/audit-logs")
+    app.register_blueprint(export_bp, url_prefix="/api")
+    app.register_blueprint(subscriptions_bp, url_prefix="/api/subscriptions")
+    app.register_blueprint(calendar_bp, url_prefix="/api")
+    app.register_blueprint(uploads_bp, url_prefix="/api")
+
+>>>>>>> Stashed changes
     register_commands(app)
 
     return app

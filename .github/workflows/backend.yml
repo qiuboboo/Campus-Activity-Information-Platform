@@ -1,0 +1,26 @@
+name: Backend CI
+
+on:
+  push:
+    paths: ['backend/**', 'scripts/upgrade_legacy_schema.py', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', 'scripts/upgrade_legacy_schema.py', '.github/workflows/backend.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pytest -q
+      - name: Verify a clean database migration
+        env:
+          AUTO_CREATE_TABLES: 'false'
+          DATABASE_URL: 'sqlite:///ci-migration.db'
+        run: python -m flask --app wsgi db upgrade

@@ -189,7 +189,10 @@ def review_queue():
     if status_filter:
         query = query.filter_by(status=status_filter)
     else:
-        query = query.filter(Poster.status.in_(["pending_review", "draft", "rejected"]))
+        # The review queue is actionable work only.  Rejected records remain
+        # available through an explicit status filter/audit history, but must
+        # not keep appearing as items awaiting review.
+        query = query.filter(Poster.status.in_(["pending_review", "draft"]))
 
     if source_type:
         query = query.filter_by(source_type=source_type)

@@ -39,7 +39,75 @@ backend/app/
 | 搜索 | SearXNG 多引擎 + 搜狗微信 + 向量检索 (pgvector) |
 | 部署 | Docker Compose + Nginx |
 
+<<<<<<< Updated upstream
 ## 常用命令
+=======
+默认地址：`http://127.0.0.1:5000`
+
+默认管理员账号在 `.env` 中配置：
+
+- 用户名：`admin`
+- 密码：`admin123456`
+
+## 初始化数据库
+
+默认开发环境开启 `AUTO_CREATE_TABLES=true`，首次启动会自动建表并创建默认管理员。
+
+也可以手动执行：
+
+```powershell
+flask --app wsgi init-db
+flask --app wsgi seed-demo
+```
+
+## 数据库迁移（生产环境）
+
+项目使用 Flask-Migrate/Alembic 管理表结构版本。新建数据库执行：
+
+```powershell
+flask --app wsgi db upgrade
+```
+
+已有 SQLite 或 PostgreSQL 数据库在首次切换前应先备份；若它已由本项目
+的 `AUTO_CREATE_TABLES=true` 初始化并已处于当前模型版本，执行下面命令只
+写入迁移版本标记，不会建表、删表或修改业务数据：
+
+```powershell
+flask --app wsgi db stamp head
+```
+
+之后每次模型变更均生成并提交迁移：
+
+```powershell
+flask --app wsgi db migrate -m "描述本次结构变更"
+flask --app wsgi db upgrade
+```
+
+## 已实现接口
+
+- `GET /api/health`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/posters`
+- `POST /api/posters`
+- `GET /api/posters/{id}`
+- `PUT /api/posters/{id}`
+- `POST /api/posters/{id}/review`
+
+## 登录示例
+
+```json
+POST /api/auth/login
+{
+  "username": "admin",
+  "password": "admin123456"
+}
+```
+
+## Docker 部署
+
+1. 复制环境变量文件：
+>>>>>>> Stashed changes
 
 ```bash
 # 开发
@@ -58,6 +126,7 @@ flask --app wsgi seed-demo               # 填充演示数据
 
 见 `.env.example`。关键配置：
 
+<<<<<<< Updated upstream
 | 变量 | 说明 |
 |------|------|
 | `DATABASE_URL` | 数据库连接 (默认 SQLite) |
@@ -78,11 +147,17 @@ flask --app wsgi seed-demo               # 填充演示数据
 - 响应格式：列表 `{"items": [], "page": 1, "per_page": 10, "total": 30}`，单项 `{"data": {}}`
 
 ## 测试
+=======
+3. 启动（Compose 会在 Gunicorn 前自动执行 `flask db upgrade`）：
+>>>>>>> Stashed changes
 
 ```bash
 docker compose exec app python -m pytest tests/ -v
 ```
+<<<<<<< Updated upstream
 
 - API 集成测试优先，每个端点至少一个 happy path + 一个 error case
 - 外部依赖 (LLM API, MCP, HTTP) 需 mock
 - 数据库用内存 SQLite，不 mock
+=======
+>>>>>>> Stashed changes

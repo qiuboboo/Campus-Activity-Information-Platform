@@ -84,7 +84,11 @@ def update(source_id: int):
         ds = update_data_source(
             source_id,
             name=data.get("name"),
+<<<<<<< Updated upstream
             base_url=data.get("base_url") or data.get("url"),
+=======
+            base_url=data.get("base_url", data.get("url")),
+>>>>>>> Stashed changes
             list_selector=data.get("list_selector"),
             content_selector=data.get("content_selector"),
             crawl_mode=data.get("crawl_mode"),

@@ -51,6 +51,11 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
 
+    # --- Local attachment storage ---
+    UPLOAD_DIR = os.path.abspath(os.getenv("UPLOAD_DIR", "uploads"))
+    MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(10 * 1024 * 1024)))
+    RECOMMENDATION_ENABLED = _as_bool(os.getenv("RECOMMENDATION_ENABLED"), True)
+
     # --- Multi-Engine Search (SearXNG) ---
     SEARXNG_BASE_URL = os.getenv("SEARXNG_BASE_URL", "http://campus-activity-searxng:8080")
 
@@ -59,6 +64,10 @@ class Config:
 
     # --- Crawler Security ---
     CRAWL_REQUEST_INTERVAL = int(os.getenv("CRAWL_REQUEST_INTERVAL", "2"))
+    CRAWL_CONNECT_TIMEOUT = int(os.getenv("CRAWL_CONNECT_TIMEOUT", "5"))
+    CRAWL_READ_TIMEOUT = int(os.getenv("CRAWL_READ_TIMEOUT", "30"))
+    CRAWL_REQUEST_RETRIES = int(os.getenv("CRAWL_REQUEST_RETRIES", "2"))
+    CRAWL_RETRY_BACKOFF_SECONDS = float(os.getenv("CRAWL_RETRY_BACKOFF_SECONDS", "1"))
     CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "50"))
     CRAWL_SOFT_TIMEOUT = int(os.getenv("CRAWL_SOFT_TIMEOUT", "1800"))
     CRAWL_BLOCK_INTERNAL = _as_bool(os.getenv("CRAWL_BLOCK_INTERNAL"), True)

@@ -1,5 +1,9 @@
 import io
+<<<<<<< Updated upstream
 import os as _os
+=======
+import time
+>>>>>>> Stashed changes
 import random
 import string
 import uuid
@@ -14,8 +18,9 @@ def _env(key: str) -> str:
 
 _CAPTCHA_TTL = 300  # 5 minutes
 _CAPTCHA_LENGTH = 4
-_IMG_WIDTH = 140
-_IMG_HEIGHT = 48
+_IMG_WIDTH = 176
+_IMG_HEIGHT = 60
+_MEMORY_CAPTCHAS: dict[str, tuple[str, float]] = {}
 
 
 def _get_redis() -> object:
@@ -51,19 +56,22 @@ def _draw_captcha(code: str) -> bytes:
             fill=_random_color(0, 255),
         )
 
-    # Draw digits with random offsets
+    # Draw large, high-contrast digits.  The former Pillow default bitmap font
+    # became unreadable after the browser scaled the image down.
     try:
         from PIL import ImageFont
-
-        font = ImageFont.load_default()
+        try:
+            font = ImageFont.truetype("arialbd.ttf", 34)
+        except OSError:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 34)
     except Exception:
         font = None
 
     char_width = _IMG_WIDTH // _CAPTCHA_LENGTH
     for i, ch in enumerate(code):
-        x = i * char_width + random.randint(3, char_width - 14)
-        y = random.randint(4, _IMG_HEIGHT - 16)
-        draw.text((x, y), ch, fill=_random_color(0, 100), font=font)
+        x = i * char_width + random.randint(7, 15)
+        y = random.randint(8, 14)
+        draw.text((x, y), ch, fill=_random_color(0, 70), font=font, stroke_width=1)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -75,6 +83,7 @@ def _random_color(low: int, high: int) -> tuple[int, int, int]:
 
 
 def create_captcha() -> tuple[str, bytes]:
+<<<<<<< Updated upstream
     """Generate a CAPTCHA image and return (token, image_bytes).
 
     The token is a UUID that maps to the correct answer in Redis.
@@ -93,32 +102,48 @@ def create_captcha() -> tuple[str, bytes]:
         img.save(buf, format="PNG")
         return ("e2e-captcha-bypass-token", buf.getvalue())
 
+=======
+    """Generate a CAPTCHA image and store its one-time answer."""
+>>>>>>> Stashed changes
     code = _generate_code()
     image_bytes = _draw_captcha(code)
-
     token = str(uuid.uuid4())
     redis_key = f"captcha:{token}"
-    _get_redis().setex(redis_key, _CAPTCHA_TTL, code)
-
+    redis = _get_redis()
+    if redis is not None:
+        try:
+            redis.setex(redis_key, _CAPTCHA_TTL, code)
+        except Exception:
+            _MEMORY_CAPTCHAS[token] = (code, time.monotonic() + _CAPTCHA_TTL)
+    else:
+        _MEMORY_CAPTCHAS[token] = (code, time.monotonic() + _CAPTCHA_TTL)
     return token, image_bytes
 
 
 def validate_captcha(token: str, code: str) -> bool:
+<<<<<<< Updated upstream
     """Verify a CAPTCHA answer.  One-time use — deletes the key regardless."""
     # Bypass captcha in test/e2e mode
     if current_app.config.get("TESTING", False) or _env("CAPTCHA_E2E_BYPASS") == "1":
+=======
+    """Verify a one-time CAPTCHA answer with a local development fallback."""
+    if current_app.config.get("TESTING", False):
+>>>>>>> Stashed changes
         return True
-
     if not token or not code:
         return False
-
     redis_key = f"captcha:{token}"
-    r = _get_redis()
-    stored = r.get(redis_key)
+    redis = _get_redis()
+    if redis is not None:
+        try:
+            stored = redis.get(redis_key)
+            if stored is not None:
+                redis.delete(redis_key)
+                return stored.decode("utf-8") == code.strip()
+        except Exception:
+            pass
+    stored = _MEMORY_CAPTCHAS.pop(token, None)
     if stored is None:
         return False
-
-    # Always delete so the token cannot be replayed
-    r.delete(redis_key)
-
-    return stored.decode("utf-8") == code.strip()
+    stored_code, expires_at = stored
+    return time.monotonic() <= expires_at and stored_code == code.strip()

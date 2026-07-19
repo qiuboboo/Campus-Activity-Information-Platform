@@ -149,6 +149,17 @@ class TestReviewQueue:
         data = resp.get_json()
         assert "items" in data
 
+    def test_rejected_poster_is_not_in_default_queue(self, client, admin_headers, sample_poster):
+        client.post(f"/api/posters/{sample_poster.id}/submit", headers=admin_headers)
+        client.post(
+            f"/api/posters/{sample_poster.id}/review",
+            json={"action": "reject", "comment": "not suitable"},
+            headers=admin_headers,
+        )
+        response = client.get("/api/posters/review-queue", headers=admin_headers)
+        assert response.status_code == 200
+        assert sample_poster.id not in {item["id"] for item in response.get_json()["items"]}
+
     def test_requires_admin(self, client, publisher_headers):
         resp = client.get("/api/posters/review-queue", headers=publisher_headers)
         assert resp.status_code == 403

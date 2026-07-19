@@ -1,10 +1,25 @@
 from datetime import datetime
+import json
+import re
 
 from sqlalchemy import or_
 
 from ..extensions import db
+<<<<<<< Updated upstream
 from ..models import KnowledgeNode, Poster, PosterLink, PosterNode
 from .dict_manager import normalize as _dict_normalize
+=======
+from ..models import (
+    ActivityFavorite,
+    ActivityRegistration,
+    KnowledgeNode,
+    Poster,
+    PosterLink,
+    PosterNode,
+    Subscription,
+    UserCalendarEvent,
+)
+>>>>>>> Stashed changes
 
 
 NODE_RELATION_TYPES = {
@@ -56,6 +71,178 @@ def _topic_from_poster(poster: Poster) -> str | None:
         if keyword in text:
             return topic
     return None
+
+
+def _poster_tags(poster: Poster) -> set[str]:
+    """Read legacy comma-separated and newer JSON tag values alike."""
+    if not poster.tags:
+        return set()
+    try:
+        value = json.loads(poster.tags)
+        if isinstance(value, list):
+            return {str(item).strip() for item in value if str(item).strip()}
+    except (TypeError, json.JSONDecodeError):
+        pass
+    return {item.strip() for item in poster.tags.split(",") if item.strip()}
+
+
+def _title_terms(poster: Poster) -> set[str]:
+    """Small dependency-free lexical signal for Chinese and English titles."""
+    text = f"{poster.title or ''} {poster.summary or ''}".lower()
+    cjk = "".join(re.findall(r"[\u4e00-\u9fff]", text))
+    terms = {cjk[index:index + 2] for index in range(max(0, len(cjk) - 1))}
+    terms.update(re.findall(r"[a-z][a-z0-9_-]{2,}", text))
+    return terms
+
+
+def related_recommendations(poster: Poster, limit: int = 6) -> list[dict]:
+    """Return explainable, multi-factor related-activity recommendations.
+
+    This intentionally combines structured graph signals and lightweight text
+    similarity, so recommendations remain deterministic and transparent even
+    when embeddings or an external AI service are unavailable.
+    """
+    candidates = Poster.query.filter(
+        Poster.id != poster.id,
+        Poster.status == "published",
+    ).all()
+    source_tags = _poster_tags(poster)
+    source_topic = _topic_from_poster(poster)
+    source_terms = _title_terms(poster)
+    ranked: list[tuple[int, Poster, list[str]]] = []
+
+    for candidate in candidates:
+        score = 0
+        reasons: list[str] = []
+        if poster.activity_type and poster.activity_type == candidate.activity_type:
+            score += 3; reasons.append("同类活动")
+        shared_tags = sorted(source_tags & _poster_tags(candidate))
+        if shared_tags:
+            score += min(4, len(shared_tags) * 2)
+            reasons.append(f"共同标签：{'、'.join(shared_tags[:2])}")
+        if poster.organizer and poster.organizer == candidate.organizer:
+            score += 3; reasons.append("同一主办方")
+        if poster.location and poster.location == candidate.location:
+            score += 2; reasons.append("同一地点")
+        if source_topic and source_topic == _topic_from_poster(candidate):
+            score += 3; reasons.append(f"共同主题：{source_topic}")
+        if poster.event_time and candidate.event_time:
+            days = abs((poster.event_time.date() - candidate.event_time.date()).days)
+            if days <= 7:
+                score += 2; reasons.append("时间相近")
+            elif days <= 30:
+                score += 1
+        shared_terms = source_terms & _title_terms(candidate)
+        if len(shared_terms) >= 2:
+            score += min(3, len(shared_terms))
+            reasons.append("内容主题相近")
+        if score >= 3:
+            ranked.append((score, candidate, reasons))
+
+    ranked.sort(key=lambda item: (-item[0], item[1].event_time or datetime.max, -item[1].id))
+    return [
+        {
+            "poster": candidate.to_dict(),
+            "score": score,
+            "reason": " · ".join(reasons[:3]) or "相关活动推荐",
+        }
+        for score, candidate, reasons in ranked[:limit]
+    ]
+
+
+def personalized_recommendations(user_id: int, limit: int = 6) -> list[dict]:
+    """Rank future activities from non-sensitive user behaviour.
+
+    Registration form fields are intentionally never read.  Only the user's
+    explicit favourites, registrations, subscriptions and calendar entries
+    contribute to this profile, and every result carries an explanation.
+    """
+    favorites = ActivityFavorite.query.filter_by(user_id=user_id).all()
+    registrations = ActivityRegistration.query.filter_by(user_id=user_id).all()
+    seed_weights: dict[int, int] = {}
+    for row in favorites:
+        seed_weights[row.poster_id] = max(seed_weights.get(row.poster_id, 0), 3)
+    for row in registrations:
+        seed_weights[row.poster_id] = max(seed_weights.get(row.poster_id, 0), 4)
+    subscribed_keywords = {
+        (row.keyword or "").strip().lower()
+        for row in Subscription.query.filter_by(user_id=user_id).all()
+        if row.keyword and row.keyword.strip()
+    }
+    subscribed_node_ids = {
+        row.node_id for row in Subscription.query.filter_by(user_id=user_id).all() if row.node_id
+    }
+    seeds = Poster.query.filter(Poster.id.in_(seed_weights)).all() if seed_weights else []
+    registered_ids = {row.poster_id for row in registrations}
+    favorite_ids = {row.poster_id for row in favorites}
+    calendar_posters = [row.poster for row in UserCalendarEvent.query.filter_by(user_id=user_id).all() if row.poster]
+    now = datetime.utcnow()
+    candidates = Poster.query.filter(
+        Poster.status == "published",
+        or_(Poster.event_time.is_(None), Poster.event_time >= now),
+    ).all()
+
+    ranked: list[tuple[int, Poster, list[str]]] = []
+    for candidate in candidates:
+        if candidate.id in registered_ids or candidate.id in favorite_ids:
+            continue
+        score = 0
+        reasons: list[str] = []
+        candidate_terms = _title_terms(candidate)
+        candidate_tags = _poster_tags(candidate)
+        candidate_text = " ".join([
+            candidate.title or "", candidate.summary or "", candidate.activity_type or "", candidate.tags or "",
+        ]).lower()
+        for seed in seeds:
+            weight = seed_weights.get(seed.id, 1)
+            matched = False
+            if seed.activity_type and seed.activity_type == candidate.activity_type:
+                score += 2 * weight; matched = True
+            if _poster_tags(seed) & candidate_tags:
+                score += 2 * weight; matched = True
+            if _title_terms(seed) & candidate_terms:
+                score += weight; matched = True
+            if matched:
+                reasons.append("与你收藏或报名的活动兴趣相近")
+        keyword_matches = [keyword for keyword in subscribed_keywords if keyword in candidate_text]
+        if keyword_matches:
+            score += min(6, len(keyword_matches) * 3)
+            reasons.append(f"匹配订阅：{keyword_matches[0]}")
+        if subscribed_node_ids:
+            node_match = PosterNode.query.filter(
+                PosterNode.poster_id == candidate.id,
+                PosterNode.node_id.in_(subscribed_node_ids),
+            ).first()
+            if node_match:
+                score += 4; reasons.append("匹配订阅的知识主题")
+        for scheduled in calendar_posters:
+            if not candidate.event_time or not scheduled.event_time:
+                continue
+            if candidate.event_time == scheduled.event_time:
+                score -= 6; reasons.append("与已有日程时间冲突")
+            elif candidate.event_time.date() == scheduled.event_time.date():
+                score -= 1; reasons.append("当日日程较密集")
+        if not reasons:
+            score += 1
+            reasons.append("近期校园热门活动")
+        ranked.append((score, candidate, reasons))
+
+    ranked.sort(key=lambda item: (-item[0], item[1].event_time or datetime.max, -item[1].id))
+    results: list[dict] = []
+    type_counts: dict[str, int] = {}
+    for score, candidate, reasons in ranked:
+        activity_type = candidate.activity_type or "其他"
+        if type_counts.get(activity_type, 0) >= 2:
+            continue
+        type_counts[activity_type] = type_counts.get(activity_type, 0) + 1
+        results.append({
+            "activity": candidate.to_dict(),
+            "score": score,
+            "reason": " · ".join(dict.fromkeys(reasons[:2])),
+        })
+        if len(results) >= limit:
+            break
+    return results
 
 
 def _node_specs_for_poster(poster: Poster) -> list[dict]:
@@ -240,30 +427,13 @@ def related_payload(poster: Poster) -> dict:
         *PosterLink.query.filter_by(to_poster_id=poster.id).all(),
     ]
     node_ids = [poster_node.node_id for poster_node in direct_nodes]
-    related_posters = []
-
-    if node_ids:
-        related_rows = (
-            PosterNode.query.filter(PosterNode.node_id.in_(node_ids))
-            .filter(PosterNode.poster_id != poster.id)
-            .all()
-        )
-        seen = set()
-        for row in related_rows:
-            if row.poster_id in seen:
-                continue
-            seen.add(row.poster_id)
-            related_posters.append(
-                {
-                    "poster": row.poster.to_dict(),
-                    "shared_node": row.node.to_dict(),
-                    "relation_type": row.relation_type,
-                }
-            )
+    related_posters = related_recommendations(poster)
 
     return {
         "poster": poster.to_dict(),
         "knowledge_nodes": [poster_node.to_dict() for poster_node in direct_nodes],
+        "nodes": [poster_node.node.to_dict() for poster_node in direct_nodes if poster_node.node],
+        "related": related_posters,
         "related_posters": related_posters,
         "poster_links": [_link_payload(link, poster.id) for link in direct_links],
     }

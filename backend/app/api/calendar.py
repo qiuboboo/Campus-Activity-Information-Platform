@@ -1,9 +1,8 @@
 """API blueprint for personal calendar (ICS download + saved events)."""
 
-from flask import Blueprint, jsonify, make_response, request
+from flask import Blueprint, jsonify, make_response
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from ..extensions import db
 from ..models import Poster, UserCalendarEvent
 from ..services.calendar_service import generate_ics
 
@@ -44,6 +43,7 @@ def download_ics(poster_id: int):
     return response
 
 
+<<<<<<< Updated upstream
 # ---------------------------------------------------------------------------
 # Personal calendar events (auth required)
 # ---------------------------------------------------------------------------
@@ -85,6 +85,8 @@ def add_calendar_event():
     }), 201
 
 
+=======
+>>>>>>> Stashed changes
 @calendar_bp.get("/calendar/events")
 @jwt_required()
 def list_calendar_events():
@@ -96,8 +98,24 @@ def list_calendar_events():
         .order_by(Poster.event_time.asc().nulls_last())
         .all()
     )
+    calendar_events = []
+    for event in events:
+        poster = event.poster
+        if poster is None:
+            continue
+        event_time = poster.event_time.isoformat() if poster.event_time else None
+        calendar_events.append({
+            "id": event.id,
+            "title": poster.title,
+            "time": poster.event_time.strftime("%H:%M") if poster.event_time else "全天",
+            "type": "activity",
+            "date": poster.event_time.date().isoformat() if poster.event_time else None,
+            "event_time": event_time,
+            "activity_id": poster.id,
+        })
     return jsonify({
         "items": [e.to_dict() for e in events],
+<<<<<<< Updated upstream
         "events": [_calendar_event_payload(e) for e in events],
         "total": len(events),
     })
@@ -120,3 +138,8 @@ def remove_calendar_event(poster_id: int):
 
 # ---------------------------------------------------------------------------
 # (activity-counts endpoint removed — heatmap now uses personal calendar events)
+=======
+        "events": calendar_events,
+        "total": len(events),
+    })
+>>>>>>> Stashed changes

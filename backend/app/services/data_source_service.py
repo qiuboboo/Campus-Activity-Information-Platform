@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,14 @@ def _validate_base_url(url: str) -> str:
     if not re.match(r"^https?://", url):
         raise ValueError("base_url must start with http:// or https://")
     return url
+
+
+def _default_allowed_domain(url: str) -> str:
+    """Restrict a simple data source to the host the administrator entered."""
+    host = urlparse(url).hostname
+    if not host:
+        raise ValueError("base_url must include a valid host")
+    return host
 
 
 def list_data_sources() -> list[DataSource]:
@@ -53,7 +62,7 @@ def create_data_source(
         source_level=source_level,
         owner=owner.strip() if owner else None,
         notes=notes.strip() if notes else None,
-        allowed_domains=allowed_domains.strip() if allowed_domains else None,
+        allowed_domains=allowed_domains.strip() if allowed_domains else _default_allowed_domain(base_url),
         request_interval=request_interval or 2,
     )
     db.session.add(ds)
@@ -83,6 +92,8 @@ def update_data_source(
         ds.name = name.strip()
     if base_url is not None:
         ds.base_url = _validate_base_url(base_url)
+        if not ds.allowed_domains and allowed_domains is None:
+            ds.allowed_domains = _default_allowed_domain(ds.base_url)
     if list_selector is not None:
         ds.list_selector = list_selector.strip() if list_selector else None
     if content_selector is not None:

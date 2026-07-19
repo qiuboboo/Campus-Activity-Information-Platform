@@ -1,6 +1,12 @@
 from datetime import datetime
+<<<<<<< Updated upstream
 from urllib.parse import urlparse
 from urllib.parse import urljoin
+=======
+import re
+import time
+from urllib.parse import urldefrag, urljoin, urlparse
+>>>>>>> Stashed changes
 
 import requests
 from bs4 import BeautifulSoup
@@ -30,7 +36,6 @@ from .security_service import (
 # Track consecutive security failures per data source (process-local)
 _security_failures: dict[int, int] = defaultdict(int)
 
-_REQUEST_TIMEOUT = 10
 _MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -38,31 +43,51 @@ _USER_AGENT = (
     "Chrome/120.0.0.0 Safari/537.36"
 )
 _MAX_TITLE_LENGTH = 200
-_MAX_SUMMARY_LENGTH = 500
+_MAX_SUMMARY_LENGTH = 180
+_ACTIVITY_KEYWORDS = (
+    "活动", "讲座", "报告", "论坛", "会议", "竞赛", "比赛", "培训", "招新",
+    "开放日", "宣讲", "研讨会", "学术交流", "seminar", "lecture", "forum",
+    "competition", "workshop",
+)
+_DATE_OR_TIME_PATTERN = re.compile(
+    r"(?:20\d{2}[年./-]\s*\d{1,2}[月./-]\s*\d{1,2}|\d{1,2}月\d{1,2}日|\d{1,2}:\d{2})"
+)
+_NON_CONTENT_SUFFIXES = (".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar")
+_LISTING_TITLE_MARKERS = (
+    "列表", "通知", "公告", "新闻", "资讯", "活动中心",
+    "学术活动", "精品活动", "活动预告",
+)
 
 
 def _fetch(url: str, allowed_domains: list[str] | None = None) -> str:
     validate_target_url(url, allowed_domains)
+    connect_timeout = current_app.config.get("CRAWL_CONNECT_TIMEOUT", 5)
+    read_timeout = current_app.config.get("CRAWL_READ_TIMEOUT", 30)
+    retries = max(0, current_app.config.get("CRAWL_REQUEST_RETRIES", 2))
+    backoff = max(0, current_app.config.get("CRAWL_RETRY_BACKOFF_SECONDS", 1))
 
-    resp = requests.get(
-        url,
-        timeout=_REQUEST_TIMEOUT,
-        headers={"User-Agent": _USER_AGENT},
-        stream=True,
-        allow_redirects=True,
-    )
-    resp.raise_for_status()
-
-    # Check redirect safety — final URL must be same domain
-    if resp.history:
-        check_redirect_safety(url, resp.url)
-
-    content = b""
-    for chunk in resp.iter_content(chunk_size=8192, decode_unicode=False):
-        content += chunk
-        if len(content) > _MAX_RESPONSE_BYTES:
-            break
-    return content.decode("utf-8", errors="replace")
+    for attempt in range(retries + 1):
+        response = None
+        try:
+            response = requests.get(url, timeout=(connect_timeout, read_timeout), headers={"User-Agent": _USER_AGENT}, stream=True, allow_redirects=True)
+            response.raise_for_status()
+            if response.history:
+                check_redirect_safety(url, response.url)
+            content = b""
+            for chunk in response.iter_content(chunk_size=8192, decode_unicode=False):
+                content += chunk
+                if len(content) > _MAX_RESPONSE_BYTES:
+                    break
+            return content.decode("utf-8", errors="replace")
+        except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            retryable = isinstance(exc, (requests.Timeout, requests.ConnectionError)) or status == 429 or (status is not None and status >= 500)
+            if not retryable or attempt >= retries:
+                raise
+            time.sleep(backoff * (2 ** attempt))
+        finally:
+            if response is not None:
+                response.close()
 
 
 def _parse_list_links(html: str, base_url: str, list_selector: str) -> list[str]:
@@ -77,16 +102,147 @@ def _parse_list_links(html: str, base_url: str, list_selector: str) -> list[str]
     return links
 
 
-def _parse_content(html: str, content_selector: str | None) -> str:
-    soup = BeautifulSoup(html, "html.parser")
-    if content_selector:
-        elements = soup.select(content_selector)
-        text = "\n".join(el.get_text(separator="\n", strip=True) for el in elements)
-    else:
-        text = soup.get_text(separator="\n", strip=True)
+def _discover_activity_links(html: str, base_url: str, allowed_domains: list[str]) -> list[str]:
+    """Find likely activity detail pages on an unconfigured official homepage.
 
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    A homepage is an index, not an activity.  We therefore only retain same-site
+    links whose visible text or path looks event-related; each retained URL is
+    subsequently fetched as its own candidate activity.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    base_host = (urlparse(base_url).hostname or "").lower()
+    ranked: list[tuple[int, str]] = []
+    seen: set[str] = set()
+
+    for anchor in soup.select("a[href]"):
+        href = (anchor.get("href") or "").strip()
+        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+            continue
+        absolute, _fragment = urldefrag(urljoin(base_url, href))
+        parsed = urlparse(absolute)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme not in ("http", "https") or not host:
+            continue
+        if not any(host == domain.lower() or host.endswith("." + domain.lower()) for domain in allowed_domains):
+            continue
+        if absolute in seen or absolute.rstrip("/") == base_url.rstrip("/"):
+            continue
+        if parsed.path.lower().endswith(_NON_CONTENT_SUFFIXES):
+            continue
+
+        text = " ".join(anchor.get_text(" ", strip=True).split())
+        haystack = f"{text} {parsed.path}".lower()
+        keyword_hits = sum(keyword.lower() in haystack for keyword in _ACTIVITY_KEYWORDS)
+        has_date = bool(_DATE_OR_TIME_PATTERN.search(text))
+        is_detail_like = bool(re.search(r"(?:info|notice|news|article|content|view|detail|show|\d{4,})", parsed.path.lower()))
+        # Do not crawl the site's generic navigation or section landing pages.
+        if keyword_hits == 0 and not has_date:
+            continue
+        score = keyword_hits * 3 + (2 if has_date else 0) + (1 if is_detail_like else 0)
+        if score < 3:
+            continue
+        seen.add(absolute)
+        ranked.append((score, absolute))
+
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return [url for _score, url in ranked]
+
+
+def _looks_like_activity_document(title: str, raw_text: str) -> bool:
+    """Reject category/navigation pages that slipped through link discovery."""
+    text = f"{title}\n{raw_text}".lower()
+    keyword_hits = sum(keyword.lower() in text for keyword in _ACTIVITY_KEYWORDS)
+    return keyword_hits > 0 and (bool(_DATE_OR_TIME_PATTERN.search(text)) or keyword_hits >= 2)
+
+
+def _looks_like_listing_title(title: str) -> bool:
+    """Identify short section names such as ``学术活动 | 学院名称``.
+
+    This is only used together with the "multiple child detail links" check,
+    so a real event with a short title is not discarded merely by its name.
+    """
+    normalized = " ".join((title or "").split()).lower()
+    if any(marker in normalized for marker in _LISTING_TITLE_MARKERS):
+        return True
+    heading = re.split(r"[|｜]", normalized, maxsplit=1)[0].strip()
+    return len(heading) <= 12 and heading.endswith(
+        ("活动", "公告", "通知", "新闻", "资讯", "报告", "讲座", "论坛", "会议")
+    )
+
+
+def _normalise_lines(text: str) -> str:
+    """Remove repeated navigation-like lines without flattening article paragraphs."""
+    seen, lines = set(), []
+    for line in text.splitlines():
+        line = re.sub(r"\s+", " ", line).strip()
+        if not line or line in seen:
+            continue
+        lowered = line.lower()
+        if len(line) < 60 and any(marker in lowered for marker in ("版权所有", "copyright", "网站地图", "联系我们", "设为首页", "繁體", "english")):
+            continue
+        seen.add(line)
+        lines.append(line)
     return "\n".join(lines)
+
+
+def _remove_page_noise(soup: BeautifulSoup) -> None:
+    for tag in soup.select("script,style,noscript,svg,iframe,nav,header,footer,aside,form,button"):
+        tag.decompose()
+    for tag in soup.find_all(True):
+        # Descendants of a decomposed container remain in BeautifulSoup's
+        # iterator snapshot but no longer have an attrs mapping.
+        if tag.attrs is None:
+            continue
+        # Some real-world pages use `class` without a value.  Treat it as an
+        # empty list instead of allowing BeautifulSoup's `None` to abort the
+        # entire crawl for this one node.
+        classes = tag.get("class") or []
+        hint = " ".join(classes) + " " + (tag.get("id") or "") + " " + (tag.get("role") or "")
+        hint = hint.lower()
+        if any(word in hint for word in ("nav", "menu", "footer", "header", "sidebar", "breadcrumb", "recommend", "related", "share", "copyright", "pagination")):
+            tag.decompose()
+
+
+def _content_score(element) -> int:
+    text = element.get_text(" ", strip=True)
+    if not text:
+        return -1
+    links = " ".join(link.get_text(" ", strip=True) for link in element.select("a"))
+    link_penalty = min(len(text), len(links))
+    paragraphs = len(element.select("p,br"))
+    signals = sum(keyword.lower() in text.lower() for keyword in _ACTIVITY_KEYWORDS)
+    return len(text) - link_penalty * 2 + paragraphs * 80 + signals * 120
+
+
+def _parse_content(html: str, content_selector: str | None) -> str:
+    """Extract article content, preferring a source selector then a generic main block."""
+    soup = BeautifulSoup(html, "html.parser")
+    _remove_page_noise(soup)
+    candidates = soup.select(content_selector) if content_selector else []
+    if not candidates:
+        candidates = soup.select("article, main, [role='main'], .article-content, .article_content, .news-content, .content, .detail, .article")
+    if not candidates:
+        candidates = [soup.body or soup]
+    main = max(candidates, key=_content_score)
+    return _normalise_lines(main.get_text(separator="\n", strip=True))
+
+
+def _summarize_activity(raw_text: str) -> str:
+    """Produce a concise, event-oriented summary rather than page-leading boilerplate."""
+    paragraphs = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    relevant = [line for line in paragraphs if _DATE_OR_TIME_PATTERN.search(line) or any(keyword.lower() in line.lower() for keyword in _ACTIVITY_KEYWORDS)]
+    source = " ".join(relevant or paragraphs)
+    sentences = re.split(r"(?<=[。！？!?\.])\s*", source)
+    summary = ""
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        candidate = f"{summary} {sentence}".strip()
+        if len(candidate) > _MAX_SUMMARY_LENGTH:
+            break
+        summary = candidate
+    return (summary or source)[:_MAX_SUMMARY_LENGTH].rstrip("，、；; ")
 
 
 def _clean_text(text: str) -> str:
@@ -174,7 +330,7 @@ def _create_draft_poster(
     poster = Poster(
         title=title,
         raw_text=raw_text,
-        summary=raw_text[:_MAX_SUMMARY_LENGTH].replace("\n", " ").strip(),
+        summary=_summarize_activity(raw_text),
         event_time=event_time,
         location=location,
         organizer=organizer,
@@ -269,9 +425,15 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
     interval = ds.request_interval or current_app.config.get("CRAWL_REQUEST_INTERVAL", 2)
     max_pages = current_app.config.get("CRAWL_MAX_PAGES", 50)
 
-    # For basic mode, allowed_domains is required
+    # Older data sources were created before allowed_domains became required.
+    # Safely migrate them to the exact host in their configured base URL.
     if ds.crawl_mode == "basic" and not allowed_domains:
-        return {"success": False, "error": "allowed_domains is required for basic crawl mode"}
+        host = urlparse(ds.base_url).hostname
+        if not host:
+            return {"success": False, "error": "base_url does not contain a valid allowed domain"}
+        ds.allowed_domains = host
+        db.session.commit()
+        allowed_domains = [host]
 
     log = create_crawl_log(data_source_id)
 
@@ -282,10 +444,11 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         finish_crawl_log(log, "failed", message=f"Fetch error: {e}")
         return {"success": False, "error": str(e)}
 
+    auto_discovery = not bool(ds.list_selector)
     if ds.list_selector:
         detail_urls = _parse_list_links(html, ds.base_url, ds.list_selector)
     else:
-        detail_urls = [ds.base_url]
+        detail_urls = _discover_activity_links(html, ds.base_url, allowed_domains)
 
     if not detail_urls:
         finish_crawl_log(log, "completed", message="No links found", pages_found=0)
@@ -294,12 +457,15 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
     # Enforce max pages
     if len(detail_urls) > max_pages:
         detail_urls = detail_urls[:max_pages]
+    queued_urls = set(detail_urls)
 
     posters_created = 0
     duplicates_skipped = 0
     pages_succeeded = 0
     pages_failed = 0
+    pages_rejected = 0
     quality_scores = []
+    failure_samples: list[str] = []
 
     for url in detail_urls:
         try:
@@ -317,6 +483,26 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
 
             structured = _extract_structured_fields(detail_html)
             title = structured.get("title") or _extract_title_from_html(detail_html, url)
+            child_urls = _discover_activity_links(detail_html, url, allowed_domains) if auto_discovery else []
+            is_listing_page = len(child_urls) >= 2 and (
+                not _looks_like_activity_document(title, raw_text)
+                or _looks_like_listing_title(title)
+            )
+            if auto_discovery and is_listing_page:
+                # A homepage often links to an event/notice category first.
+                # Expand that listing one level, but never turn the listing
+                # page itself into a single false activity.
+                for child_url in child_urls:
+                    if child_url not in queued_urls and len(detail_urls) < max_pages:
+                        detail_urls.append(child_url)
+                        queued_urls.add(child_url)
+                pages_rejected += 1
+                pages_succeeded += 1
+                continue
+            if auto_discovery and not _looks_like_activity_document(title, raw_text):
+                pages_rejected += 1
+                pages_succeeded += 1
+                continue
             poster, is_dup = _create_draft_poster(
                 title,
                 raw_text,
@@ -335,24 +521,41 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
             pages_succeeded += 1
         except SecurityError as e:
             pages_failed += 1
+            if len(failure_samples) < 3:
+                failure_samples.append(mask_sensitive(str(e)))
             # Auto-disable data source after 3 consecutive security failures
             _security_failures[data_source_id] += 1
             if _security_failures[data_source_id] >= 3:
                 ds.enabled = False
                 ds.last_error_message = f"Auto-disabled after {_security_failures[data_source_id]} consecutive security violations"
-        except requests.RequestException:
+        except requests.RequestException as e:
             pages_failed += 1
-        except Exception:
+            if len(failure_samples) < 3:
+                failure_samples.append(mask_sensitive(str(e)))
+        except Exception as e:
             pages_failed += 1
+            if len(failure_samples) < 3:
+                failure_samples.append(f"{type(e).__name__}: {mask_sensitive(str(e))}")
 
     db.session.commit()
 
     avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
 
     status = "failed" if pages_succeeded == 0 and pages_failed > 0 else "completed"
+    if status == "failed":
+        message = "所有详情页抓取失败"
+        if failure_samples:
+            message += f"：{failure_samples[0]}"
+    elif duplicates_skipped and not posters_created:
+        message = f"抓取完成；{duplicates_skipped} 条均为已有活动，未新建草稿"
+    elif pages_failed:
+        message = f"抓取完成；{pages_failed} 页失败，已新建 {posters_created} 条草稿"
+    else:
+        message = f"抓取完成；新建 {posters_created} 条草稿"
     finish_crawl_log(
         log,
         status,
+        message=message,
         pages_found=len(detail_urls),
         pages_succeeded=pages_succeeded,
         pages_failed=pages_failed,
@@ -378,6 +581,7 @@ def crawl_data_source(data_source_id: int, user_id: int) -> dict:
         "pages_found": len(detail_urls),
         "pages_succeeded": pages_succeeded,
         "pages_failed": pages_failed,
+        "pages_rejected": pages_rejected,
     }
 
 
@@ -494,4 +698,3 @@ def crawl_mcp_source(data_source_id: int, user_id: int) -> dict:
         "pages_found": len(raw_items),
         "pages_succeeded": pages_succeeded,
     }
-

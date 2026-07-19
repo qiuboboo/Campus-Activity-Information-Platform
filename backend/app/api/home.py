@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify
 
-from ..models import Poster
+from ..models import CrawlLog, DataSource, Poster
+from ..utils.auth import roles_required
 
 home_bp = Blueprint("home", __name__)
 
@@ -41,4 +42,16 @@ def featured():
             }
             for p in posters
         ]
+    })
+
+
+@home_bp.get("/demo/summary")
+@roles_required("admin")
+def admin_summary():
+    """Small management-dashboard summary consumed by the frontend."""
+    return jsonify({
+        "pending": Poster.query.filter(Poster.status.in_(("pending_review", "draft"))).count(),
+        "published": Poster.query.filter_by(status="published").count(),
+        "sources": DataSource.query.count(),
+        "failed_tasks": CrawlLog.query.filter_by(status="failed").count(),
     })
