@@ -1,9 +1,5 @@
 import io
-<<<<<<< Updated upstream
-import os as _os
-=======
 import time
->>>>>>> Stashed changes
 import random
 import string
 import uuid
@@ -83,28 +79,7 @@ def _random_color(low: int, high: int) -> tuple[int, int, int]:
 
 
 def create_captcha() -> tuple[str, bytes]:
-<<<<<<< Updated upstream
-    """Generate a CAPTCHA image and return (token, image_bytes).
-
-    The token is a UUID that maps to the correct answer in Redis.
-    The caller returns the image to the client; the client must submit
-    both the token and the user-entered code when logging in.
-    """
-    # Bypass captcha in test/e2e mode — Redis may not be available (pytest)
-    # or we want a predictable code (Playwright e2e against real Docker)
-    if current_app.config.get("TESTING", False) or _env("CAPTCHA_E2E_BYPASS") == "1":
-        from io import BytesIO
-
-        from PIL import Image
-
-        img = Image.new("RGB", (1, 1), (255, 255, 255))
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        return ("e2e-captcha-bypass-token", buf.getvalue())
-
-=======
     """Generate a CAPTCHA image and store its one-time answer."""
->>>>>>> Stashed changes
     code = _generate_code()
     image_bytes = _draw_captcha(code)
     token = str(uuid.uuid4())
@@ -121,14 +96,8 @@ def create_captcha() -> tuple[str, bytes]:
 
 
 def validate_captcha(token: str, code: str) -> bool:
-<<<<<<< Updated upstream
-    """Verify a CAPTCHA answer.  One-time use — deletes the key regardless."""
-    # Bypass captcha in test/e2e mode
-    if current_app.config.get("TESTING", False) or _env("CAPTCHA_E2E_BYPASS") == "1":
-=======
     """Verify a one-time CAPTCHA answer with a local development fallback."""
     if current_app.config.get("TESTING", False):
->>>>>>> Stashed changes
         return True
     if not token or not code:
         return False

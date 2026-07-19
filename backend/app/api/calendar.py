@@ -43,50 +43,6 @@ def download_ics(poster_id: int):
     return response
 
 
-<<<<<<< Updated upstream
-# ---------------------------------------------------------------------------
-# Personal calendar events (auth required)
-# ---------------------------------------------------------------------------
-
-
-@calendar_bp.post("/calendar/events")
-@jwt_required()
-def add_calendar_event():
-    """Add a poster to 'My Calendar'."""
-    user_id = int(get_jwt_identity())
-    payload = request.get_json(silent=True) or {}
-    poster_id = payload.get("poster_id")
-
-    if not poster_id:
-        return jsonify({"message": "poster_id is required"}), 400
-    poster_id = int(poster_id)
-
-    poster = Poster.query.get(poster_id)
-    if not poster or poster.status != "published":
-        return jsonify({"error": "poster not found or not published"}), 404
-
-    existing = UserCalendarEvent.query.filter_by(
-        user_id=user_id, poster_id=poster_id
-    ).first()
-    if existing:
-        return jsonify({
-            "item": existing.to_dict(),
-            "event": _calendar_event_payload(existing),
-            "already_added": True,
-        }), 200
-
-    event = UserCalendarEvent(user_id=user_id, poster_id=poster_id)
-    db.session.add(event)
-    db.session.commit()
-    return jsonify({
-        "item": event.to_dict(),
-        "event": _calendar_event_payload(event),
-        "already_added": False,
-    }), 201
-
-
-=======
->>>>>>> Stashed changes
 @calendar_bp.get("/calendar/events")
 @jwt_required()
 def list_calendar_events():
@@ -115,31 +71,6 @@ def list_calendar_events():
         })
     return jsonify({
         "items": [e.to_dict() for e in events],
-<<<<<<< Updated upstream
-        "events": [_calendar_event_payload(e) for e in events],
-        "total": len(events),
-    })
-
-
-@calendar_bp.delete("/calendar/events/<int:poster_id>")
-@jwt_required()
-def remove_calendar_event(poster_id: int):
-    """Remove a poster from 'My Calendar'."""
-    user_id = int(get_jwt_identity())
-    event = UserCalendarEvent.query.filter_by(
-        user_id=user_id, poster_id=poster_id
-    ).first()
-    if not event:
-        return jsonify({"error": "event not found in your calendar"}), 404
-    db.session.delete(event)
-    db.session.commit()
-    return jsonify({"message": "event removed from calendar"}), 200
-
-
-# ---------------------------------------------------------------------------
-# (activity-counts endpoint removed — heatmap now uses personal calendar events)
-=======
         "events": calendar_events,
         "total": len(events),
     })
->>>>>>> Stashed changes

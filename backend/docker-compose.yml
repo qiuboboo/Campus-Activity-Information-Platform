@@ -14,17 +14,10 @@ services:
     depends_on:
       - postgres
       - redis
-<<<<<<< Updated upstream
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-=======
       - copilot-proxy
     volumes:
       - uploads-data:/app/uploads
     command: sh -c "flask --app wsgi db upgrade && exec gunicorn -c gunicorn.conf.py wsgi:app"
->>>>>>> Stashed changes
 
   postgres:
     image: pgvector/pgvector:0.7.4-pg16

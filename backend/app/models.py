@@ -1,8 +1,3 @@
-<<<<<<< Updated upstream
-"""Backward-compatible re-export. New code should import from ``app.models`` package directly."""
-
-from .models import *  # noqa: F401, F403
-=======
 from datetime import datetime
 from uuid import uuid4
 
@@ -627,4 +622,3 @@ class DictEntry(TimestampMixin, db.Model):
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
->>>>>>> Stashed changes

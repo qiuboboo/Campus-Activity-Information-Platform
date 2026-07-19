@@ -6,8 +6,6 @@ from flask import Flask, jsonify, request
 from sqlalchemy import inspect, text
 from werkzeug.exceptions import HTTPException
 
-<<<<<<< Updated upstream
-=======
 from .api.ai import ai_bp
 from .api.activities import activities_bp
 from .api.audit_logs import audit_logs_bp
@@ -25,7 +23,6 @@ from .api.subscriptions import subscriptions_bp
 from .api.tasks import tasks_bp
 from .api.uploads import uploads_bp
 from .commands import register_commands
->>>>>>> Stashed changes
 from .config import Config
 from .extensions import cors, create_redis_client, db, jwt, migrate
 from .services.bootstrap import ensure_default_admin
@@ -50,9 +47,6 @@ def init_database(app: Flask) -> None:
     with app.app_context():
         if app.config["AUTO_CREATE_TABLES"]:
             db.create_all()
-<<<<<<< Updated upstream
-            _ensure_schema_compatibility()
-=======
             # create_all does not alter existing tables.  This idempotent
             # compatibility migration works for both local SQLite and Docker
             # PostgreSQL without deleting existing registration data.
@@ -62,7 +56,6 @@ def init_database(app: Flask) -> None:
                 if "contact_email" not in columns:
                     db.session.execute(text("ALTER TABLE activity_registrations ADD COLUMN contact_email VARCHAR(120)"))
                     db.session.commit()
->>>>>>> Stashed changes
             ensure_default_admin()
 
 
@@ -170,27 +163,6 @@ def create_app(config_object: type[Config] = Config) -> Flask:
     _register_request_logging(app)
     _register_blueprints(app)
 
-<<<<<<< Updated upstream
-    from .commands import register_commands
-=======
-    app.register_blueprint(ai_bp, url_prefix="/api")
-    app.register_blueprint(health_bp, url_prefix="/api")
-    app.register_blueprint(home_bp, url_prefix="/api")
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(activities_bp, url_prefix="/api/activities")
-    app.register_blueprint(posters_bp, url_prefix="/api/posters")
-    app.register_blueprint(knowledge_bp, url_prefix="/api/knowledge")
-    app.register_blueprint(search_bp, url_prefix="/api/search")
-    app.register_blueprint(data_sources_bp, url_prefix="/api")
-    app.register_blueprint(dicts_bp, url_prefix="/api")
-    app.register_blueprint(tasks_bp, url_prefix="/api")
-    app.register_blueprint(audit_logs_bp, url_prefix="/api/audit-logs")
-    app.register_blueprint(export_bp, url_prefix="/api")
-    app.register_blueprint(subscriptions_bp, url_prefix="/api/subscriptions")
-    app.register_blueprint(calendar_bp, url_prefix="/api")
-    app.register_blueprint(uploads_bp, url_prefix="/api")
-
->>>>>>> Stashed changes
     register_commands(app)
 
     return app

@@ -26,6 +26,22 @@ class User(TimestampMixin, db.Model):
     audit_logs = db.relationship(
         "AuditLog", back_populates="actor", foreign_keys="AuditLog.actor_id", lazy=True
     )
+    activity_registrations = db.relationship(
+        "ActivityRegistration", back_populates="user", lazy=True,
+        cascade="all, delete-orphan",
+    )
+    activity_favorites = db.relationship(
+        "ActivityFavorite", back_populates="user", lazy=True,
+        cascade="all, delete-orphan",
+    )
+    uploads = db.relationship(
+        "ActivityAttachment", back_populates="owner", lazy=True,
+        cascade="all, delete-orphan",
+    )
+    publisher_applications = db.relationship(
+        "PublisherApplication", back_populates="user", lazy=True,
+        cascade="all, delete-orphan",
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)

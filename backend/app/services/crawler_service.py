@@ -1,12 +1,7 @@
 from datetime import datetime
-<<<<<<< Updated upstream
-from urllib.parse import urlparse
-from urllib.parse import urljoin
-=======
 import re
 import time
 from urllib.parse import urldefrag, urljoin, urlparse
->>>>>>> Stashed changes
 
 import requests
 from bs4 import BeautifulSoup

@@ -6,13 +6,9 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 
 from ..extensions import db
-<<<<<<< Updated upstream
-from ..models import User
-=======
 from ..models import PublisherApplication, User
 from ..utils.auth import roles_required
 from ..utils.ratelimit import limiter
->>>>>>> Stashed changes
 from ..services.captcha_service import create_captcha, validate_captcha as _check_captcha
 from ..services.email_service import send_verification_code, verify_code as _check_code
 from ..utils.ratelimit import limiter
@@ -73,14 +69,9 @@ def register():
         return jsonify({"message": "username must be 2-50 characters"}), 400
     if len(password) < 6:
         return jsonify({"message": "password must be at least 6 characters"}), 400
-<<<<<<< Updated upstream
-    if role not in ("viewer", "publisher"):
-        return jsonify({"message": "role must be 'viewer' or 'publisher'"}), 400
-=======
     if role != "viewer":
         return jsonify({"message": "new accounts must register as viewers and apply for publisher access"}), 400
 
->>>>>>> Stashed changes
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "username already exists"}), 409
 
@@ -142,17 +133,11 @@ def me():
 @auth_bp.patch("/me")
 @jwt_required()
 def update_me():
-<<<<<<< Updated upstream
-    user = User.query.get_or_404(int(get_jwt_identity()))
-    payload = request.get_json(silent=True) or {}
-    email = (payload.get("email") or "").strip()
-=======
     """Update the editable fields exposed by the profile page."""
     user = User.query.get_or_404(int(get_jwt_identity()))
     payload = request.get_json(silent=True) or {}
     email = (payload.get("email") or "").strip()
 
->>>>>>> Stashed changes
     if email:
         if not _EMAIL_RE.match(email):
             return jsonify({"message": "invalid email address"}), 400
@@ -160,27 +145,13 @@ def update_me():
         if existing:
             return jsonify({"message": "email already registered"}), 409
         user.email = email
-<<<<<<< Updated upstream
-    db.session.commit()
-    data = user.to_dict()
-    data["display_name"] = payload.get("display_name") or user.username
-    return jsonify({"user": data})
-=======
 
     db.session.commit()
     return jsonify({"user": user.to_dict()})
->>>>>>> Stashed changes
 
 
 @auth_bp.post("/forgot-password")
 @limiter.limit("5 per minute")
-<<<<<<< Updated upstream
-def forgot_password():
-    return jsonify({
-        "message": "演示环境暂未接入真实邮件重置；如果该邮箱存在，正式环境会发送重置说明。",
-        "implemented": False,
-    })
-=======
 def request_password_reset():
     """Send a reset code without revealing whether an account exists."""
     payload = request.get_json(silent=True) or {}
@@ -284,4 +255,3 @@ def review_publisher_application(application_id: int):
         application.user.role = "publisher"
     db.session.commit()
     return jsonify({"item": application.to_dict()})
->>>>>>> Stashed changes

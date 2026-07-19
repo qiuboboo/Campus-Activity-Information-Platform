@@ -7,6 +7,8 @@ from .audit import AuditLog
 from .subscription import Subscription, Notification
 from .calendar import UserCalendarEvent
 from .dict_entry import DictEntry
+from .publisher_application import PublisherApplication
+from .activity_models import ActivityAttachment, ActivityFavorite, ActivityRegistration
 
 __all__ = [
     "TimestampMixin",
@@ -22,4 +24,8 @@ __all__ = [
     "Notification",
     "UserCalendarEvent",
     "DictEntry",
+    "PublisherApplication",
+    "ActivityRegistration",
+    "ActivityFavorite",
+    "ActivityAttachment",
 ]

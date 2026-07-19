@@ -5,10 +5,6 @@ import re
 from sqlalchemy import or_
 
 from ..extensions import db
-<<<<<<< Updated upstream
-from ..models import KnowledgeNode, Poster, PosterLink, PosterNode
-from .dict_manager import normalize as _dict_normalize
-=======
 from ..models import (
     ActivityFavorite,
     ActivityRegistration,
@@ -19,7 +15,6 @@ from ..models import (
     Subscription,
     UserCalendarEvent,
 )
->>>>>>> Stashed changes
 
 
 NODE_RELATION_TYPES = {

@@ -29,6 +29,17 @@ class Poster(TimestampMixin, db.Model):
     embedding = db.Column(db.Text, nullable=True)
 
     creator = db.relationship("User", back_populates="posters")
+    registrations = db.relationship(
+        "ActivityRegistration", back_populates="poster", lazy=True,
+        cascade="all, delete-orphan",
+    )
+    favorites = db.relationship(
+        "ActivityFavorite", back_populates="poster", lazy=True,
+        cascade="all, delete-orphan",
+    )
+    attachments = db.relationship(
+        "ActivityAttachment", back_populates="poster", lazy=True,
+    )
     nodes = db.relationship(
         "PosterNode",
         back_populates="poster",
